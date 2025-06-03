@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home</title>
+</head>
+<body>
+    {% if user.is_authenticated %}
+        <h1>Hello, {{ user.id }}!</h1>
+    {% else %}
+        <h1>Welcome!</h1>
+    {% endif %}
+</body>
+</html>
