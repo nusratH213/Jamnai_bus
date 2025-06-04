@@ -1,0 +1,106 @@
+{% extends 'app/head.html' %}
+{% block content %}
+<style>
+    body { 
+        font-family: Arial, sans-serif; 
+        background: #fff3cd; 
+        padding: 20px; 
+    }
+    .container { 
+        background: white; 
+        padding: 20px; 
+        border-radius: 8px; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+        max-width: 1000px; 
+        margin: auto; 
+    }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-top: 20px; 
+    }
+    th, td { 
+        border: 1px solid #ddd; 
+        padding: 12px; 
+        text-align: center; 
+    }
+    th { 
+        background-color: #ffeeba; 
+    }
+    .route-box { 
+        margin-top: 20px; 
+    }
+    .status-log { 
+        background: #f8f9fa; 
+        padding: 10px; 
+        border-radius: 4px; 
+        margin-top: 20px; 
+    }
+    .input-form {
+        text-align: center; 
+        margin: 20px 0;
+    }
+    .input-form input {
+        padding: 6px; 
+        margin: 0 8px; 
+    }
+    .input-form button {
+        padding: 6px 12px; 
+        background-color: #ffc107; 
+        border: none; 
+        border-radius: 4px; 
+        cursor: pointer;
+    }
+    .input-form button:hover {
+        background-color: #e0a800;
+    }
+</style>
+
+<div class="container">
+    <h1>Head Dashboard</h1>
+
+    <form class="input-form" method="POST">
+        {% csrf_token %}
+        <label for="source">Source:</label>
+        <input type="text" id="source" name="source" required>
+
+        <label for="destination">Destination:</label>
+        <input type="text" id="destination" name="destination" required>
+
+        <button type="submit">Submit</button>
+    </form>
+
+    <p>Monitor all bus activities and current status across stops.</p>
+
+    <div class="route-box">
+        <h3>Full Bus Route (Forward & Reverse)</h3>
+        <p>Mirpur 10 ⇄ Mirpur 14 ⇄ Kazipara ⇄ Sheorapara ⇄ Agargaon ⇄ Farmgate ⇄ Shahbagh ⇄ Motijheel ⇄ Sayedabad ⇄ Jatrabari</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Bus ID</th>
+                <th>Current Status</th>
+                <th>Last Location</th>
+                <th>Direction</th>
+                <th>Updated At</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Bus-101</td><td>In Transit</td><td>Farmgate</td><td>Forward</td><td>09:05 AM</td></tr>
+            <tr><td>Bus-102</td><td>Waiting</td><td>Mirpur 10</td><td>Forward</td><td>08:30 AM</td></tr>
+            <tr><td>Bus-103</td><td>Arrived</td><td>Jatrabari</td><td>Reverse</td><td>09:10 AM</td></tr>
+        </tbody>
+    </table>
+
+    <div class="status-log">
+        <h4>Recent Activity Logs</h4>
+        <ul>
+            <li>[09:03 AM] Manager at Kazipara confirmed arrival</li>
+            <li>[08:55 AM] Bus-101 started from Mirpur 10</li>
+            <li>[08:40 AM] Bus-103 completed journey at Jatrabari</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

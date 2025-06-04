@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Owner Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        select, button { padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Owner Dashboard</h1>
+
+        <h3>Start Journey</h3>
+        <form method="post" action="/start-bus/">
+            {% csrf_token %}
+            <label for="bus_id_start">Select Bus:</label>
+            <select name="bus_id" id="bus_id_start">
+                <option value="101">Bus-101</option>
+                <option value="102">Bus-102</option>
+                <option value="103">Bus-103</option>
+            </select>
+            <button type="submit">Start Bus</button>
+        </form>
+
+        <h3>End Journey at Jatrabari</h3>
+        <form method="post" action="/end-bus/">
+            {% csrf_token %}
+            <label for="bus_id_end">Select Bus:</label>
+            <select name="bus_id" id="bus_id_end">
+                <option value="101">Bus-101</option>
+                <option value="102">Bus-102</option>
+                <option value="103">Bus-103</option>
+            </select>
+            <button type="submit">End Journey</button>
+        </form>
+
+        <h3>Start Reverse Journey</h3>
+        <form method="post" action="/start-reverse/">
+            {% csrf_token %}
+            <label for="bus_id_reverse">Select Bus:</label>
+            <select name="bus_id" id="bus_id_reverse">
+                <option value="101">Bus-101</option>
+                <option value="102">Bus-102</option>
+                <option value="103">Bus-103</option>
+            </select>
+            <button type="submit">Start Reverse</button>
+        </form>
+    </div>
+</body>
+</html>
