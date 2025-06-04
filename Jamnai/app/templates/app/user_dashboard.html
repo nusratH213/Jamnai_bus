@@ -1,11 +1,10 @@
 {% extends 'app/head.html' %}
+{% block title %}User Dashboard{% endblock %}
+{% block navbar_heading %}
+    User Dashboard
+{% endblock %}
 {% block content %}
 <style>
-    body { 
-        font-family: Arial, sans-serif; 
-        background: #fff3cd; 
-        padding: 20px; 
-    }
     .container { 
         background: white; 
         padding: 20px; 
@@ -57,8 +56,6 @@
 </style>
 
 <div class="container">
-    <h1>Head Dashboard</h1>
-
     <form class="input-form" method="POST">
         {% csrf_token %}
         <label for="source">Source:</label>
@@ -69,9 +66,6 @@
 
         <button type="submit">Submit</button>
     </form>
-
-    <p>Monitor all bus activities and current status across stops.</p>
-
     <div class="route-box">
         <h3>Full Bus Route (Forward & Reverse)</h3>
         <p>Mirpur 10 ⇄ Mirpur 14 ⇄ Kazipara ⇄ Sheorapara ⇄ Agargaon ⇄ Farmgate ⇄ Shahbagh ⇄ Motijheel ⇄ Sayedabad ⇄ Jatrabari</p>
@@ -82,15 +76,15 @@
             <tr>
                 <th>Bus ID</th>
                 <th>Current Status</th>
-                <th>Last Location</th>
-                <th>Direction</th>
+                <th>Last Departure</th>
+                <th>Estimated</th>
                 <th>Updated At</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td>Bus-101</td><td>In Transit</td><td>Farmgate</td><td>Forward</td><td>09:05 AM</td></tr>
-            <tr><td>Bus-102</td><td>Waiting</td><td>Mirpur 10</td><td>Forward</td><td>08:30 AM</td></tr>
-            <tr><td>Bus-103</td><td>Arrived</td><td>Jatrabari</td><td>Reverse</td><td>09:10 AM</td></tr>
+            <tr><td>Bus-101</td><td>In Transit</td><td>Farmgate</td><td>5:00</td><td>09:05 AM</td></tr>
+            <tr><td>Bus-102</td><td>Waiting</td><td>Mirpur 10</td><td>5:00</td><td>08:30 AM</td></tr>
+            <tr><td>Bus-103</td><td>Arrived</td><td>Jatrabari</td><td>9:00</td><td>09:10 AM</td></tr>
         </tbody>
     </table>
 
