@@ -62,3 +62,42 @@ class UserAdmin(BaseUserAdmin):
 
 # 4. Register your User model with this UserAdmin
 admin.site.register(User, UserAdmin)
+
+from django.contrib import admin
+from .models import Stopage, Route, RouteStopage
+
+@admin.register(Stopage)
+class StopageAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+
+@admin.register(Route)
+class RouteAdmin(admin.ModelAdmin):
+    list_display = ('route_id', 'start_stopage', 'end_stopage')
+    search_fields = ('route_id',)
+    list_filter = ('start_stopage', 'end_stopage')
+
+@admin.register(RouteStopage)
+class RouteStopageAdmin(admin.ModelAdmin):
+    list_display = ('route', 'stopage', 'order')
+    list_filter = ('route',)
+    ordering = ('route', 'order')
+
+from .models import Trip, Schedule
+
+class ScheduleInline(admin.TabularInline):
+    model = Schedule
+    extra = 1  # how many empty schedule rows to show by default
+
+@admin.register(Trip)
+class TripAdmin(admin.ModelAdmin):
+    list_display = ('trip_id', 'bus', 'route', 'date', 'is_ended')
+    list_filter = ('date', 'is_ended', 'route')
+    search_fields = ('trip_id', 'bus__id')
+    inlines = [ScheduleInline]
+
+@admin.register(Schedule)
+class ScheduleAdmin(admin.ModelAdmin):
+    list_display = ('trip', 'stopage', 'arrival_time', 'departure_time')
+    list_filter = ('stopage',)
+    search_fields = ('trip__trip_id', 'stopage__name')
