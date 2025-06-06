@@ -66,28 +66,44 @@
 
         <button type="submit">Submit</button>
     </form>
-    <div class="route-box">
-        <h3>Full Bus Route (Forward & Reverse)</h3>
-        <p>Mirpur 10 ⇄ Mirpur 14 ⇄ Kazipara ⇄ Sheorapara ⇄ Agargaon ⇄ Farmgate ⇄ Shahbagh ⇄ Motijheel ⇄ Sayedabad ⇄ Jatrabari</p>
-    </div>
+
+    {% if routes_with_path %}
+        <div class="route-box">
+            <h3>Matching Routes:</h3>
+            {% for route_info in routes_with_path %}
+                <p><strong>Route ID:</strong> {{ route_info.route.route_id }}</p>
+                <p>{{ route_info.stopages|join:" ⇄ " }}</p>
+                <hr>
+            {% endfor %}
+        </div>
+    {% elif request.method == "POST" %}
+        <p>No route found containing both stopages in order.</p>
+    {% endif %}
 
     <table>
         <thead>
             <tr>
                 <th>Bus ID</th>
-                <th>Current Status</th>
+                <th>Last Stopage</th>
                 <th>Last Departure</th>
                 <th>Estimated</th>
                 <th>Updated At</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td>Bus-101</td><td>In Transit</td><td>Farmgate</td><td>5:00</td><td>09:05 AM</td></tr>
-            <tr><td>Bus-102</td><td>Waiting</td><td>Mirpur 10</td><td>5:00</td><td>08:30 AM</td></tr>
-            <tr><td>Bus-103</td><td>Arrived</td><td>Jatrabari</td><td>9:00</td><td>09:10 AM</td></tr>
+            {% for bus in buses_info %}
+            <tr>
+                <td>{{ bus.bus_id }}</td>
+                <td>{{ bus.last_stopage }}</td>
+                <td>{{ bus.last_departure }}</td>
+                <td>{{ bus.estimated }}</td>
+                <td>{{ bus.updated_at|date:"h:i A" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No buses found</td></tr>
+            {% endfor %}
         </tbody>
     </table>
-
     <div class="status-log">
         <h4>Recent Activity Logs</h4>
         <ul>
