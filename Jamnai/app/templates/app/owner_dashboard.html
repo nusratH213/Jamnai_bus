@@ -1,8 +1,13 @@
+{% extends 'app/head.html' %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Owner Dashboard</title>
+{% block title %}Owner Dashboard{% endblock %}
+
+{% block navbar_heading %}
+    Owner Dashboard
+{% endblock %}
+
+{% block content %}
+
     <style>
         body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
         .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
@@ -10,8 +15,6 @@
         button { background: #007bff; color: white; border: none; cursor: pointer; }
         button:hover { background: #0056b3; }
     </style>
-</head>
-<body>
     <div class="container">
         <h1>Owner Dashboard</h1>
 
@@ -27,7 +30,7 @@
             <button type="submit">Start Bus</button>
         </form>
 
-        <h3>End Journey at Jatrabari</h3>
+        <!-- <h3>End Journey at Jatrabari</h3>
         <form method="post" action="/end-bus/">
             {% csrf_token %}
             <label for="bus_id_end">Select Bus:</label>
@@ -49,7 +52,7 @@
                 <option value="103">Bus-103</option>
             </select>
             <button type="submit">Start Reverse</button>
-        </form>
+        </form> -->
     </div>
-</body>
 </html>
+{% endblock %}

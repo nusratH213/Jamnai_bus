@@ -6,6 +6,12 @@ from django.shortcuts import render
 
 def hello_view(request):
     return render(request, "app/user_dashboard.html")
+
+def owner_dashboard(request):
+    return render(request, "app/owner_dashboard.html")
+
+def manager_dashboard(request):
+    return render(request, "app/manager_dashboard.html")
     
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
