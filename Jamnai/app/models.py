@@ -82,7 +82,7 @@ class Schedule(models.Model):
 
     def __str__(self):
         return f"{self.trip.trip_id} - {self.stopage.name} (Arrive: {self.arrival_time}, Depart: {self.departure_time})"
-
+    
 class Card(models.Model):
     card_id = models.CharField(max_length=100, unique=True)
     availability = models.BooleanField(default=True)  # True = Active/Usable, False = Inactive/Lost
@@ -99,3 +99,20 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"Ticket for Card {self.card.card_id} on Trip {self.trip.trip_id}: {self.start_stopage} ➝ {self.end_stopage}"
+    
+class Road(models.Model):
+    road_id = models.CharField(max_length=50, primary_key=True, unique=True)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.road_id} - {self.name}"
+    
+from django.utils import timezone
+class ImgNow(models.Model):
+    road = models.ForeignKey(Road, on_delete=models.CASCADE)
+    stopage = models.ForeignKey(Stopage, on_delete=models.CASCADE)
+    time = models.DateTimeField(default=timezone.now)
+    value = models.IntegerField()
+
+    def __str__(self):
+        return f"ImgNow | Road: {self.road.road_id}, Stopage: {self.stopage.name}, Value: {self.value}, Time: {self.time}"

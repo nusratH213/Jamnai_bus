@@ -10,5 +10,6 @@ urlpatterns = [
     path('logout/', views.user_logout, name='logout'),
     path('search/', search_routes, name='search_routes'),
     path('fo/', f, name='f'),
-    path('e/', search_routes, name='search_routes'),
+    path('g/', views.g, name='g'),
+    path('setg/', views.setg_view ,name='g'),
 ]

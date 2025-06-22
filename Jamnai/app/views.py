@@ -39,7 +39,6 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from app.models import Route, RouteStopage, Trip, Schedule, Stopage
 
-
 def search_routes(request):
     routes_with_path = []
     buses_info = []
@@ -194,3 +193,80 @@ def f(request):
             "end_stopage": current_stopage.name,
             "ticket_id": ticket.pk
         })
+    
+
+from django.http import JsonResponse
+from app.models import Road, Stopage, ImgNow 
+
+
+def g(request):
+    road_ids = request.GET.getlist('roadid[]')  # Get list of road IDs
+    stopage_id = request.GET.get('stopageid')
+
+    if not road_ids or not stopage_id:
+        return JsonResponse({"error": "Missing roadid[] or stopageid"}, status=400)
+
+    try:
+        stopage = Stopage.objects.get(pk=stopage_id)
+    except Stopage.DoesNotExist:
+        return JsonResponse({"error": "Stopage not found"}, status=404)
+
+    data = []
+
+    for rid in road_ids:
+        try:
+            road = Road.objects.get(pk=rid)
+        except Road.DoesNotExist:
+            data.append(None)  # Or skip, depending on your choice
+            continue
+
+        # Get latest ImgNow for this road and stopage
+        latest = ImgNow.objects.filter(road=road, stopage=stopage).order_by('-time').first()
+
+        data.append(latest.value if latest else None)
+
+    return JsonResponse({
+        "stopage_id": stopage_id,
+        "road_ids": road_ids,
+        "data": data  # List of latest values per road
+    })
+
+from .models import ImgNow, Road, Stopage
+from django.utils.timezone import now
+@csrf_exempt
+def setg_view(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST allowed"}, status=405)
+
+    stopage_id = request.POST.get("stopageid")
+    road_id = request.POST.get("roadid")
+    val = request.POST.get("val")
+
+    if not (stopage_id and road_id and val):
+        return JsonResponse({"error": "Missing parameters"}, status=400)
+
+    try:
+        stopage = Stopage.objects.get(pk=stopage_id)
+        road = Road.objects.get(pk=road_id)
+        value = int(val)
+    except Stopage.DoesNotExist:
+        return JsonResponse({"error": "Stopage not found"}, status=404)
+    except Road.DoesNotExist:
+        return JsonResponse({"error": "Road not found"}, status=404)
+    except ValueError:
+        return JsonResponse({"error": "Invalid value"}, status=400)
+
+    ImgNow.objects.create(
+        stopage=stopage,
+        road=road,
+        value=value,
+        time=now()
+    )
+
+    return JsonResponse({
+        "status": "value inserted",
+        "stopage": stopage.name,
+        "road": road.name,
+        "value": value
+    })
+
