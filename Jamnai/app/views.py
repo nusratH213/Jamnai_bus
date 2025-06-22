@@ -1,17 +1,13 @@
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-
 from django.shortcuts import render
-
 def hello_view(request):
     return render(request, "app/user_dashboard.html")
-    
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-
 def user_login(request):
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
@@ -79,7 +75,6 @@ def search_routes(request):
 
                     for trip in trips:
                         schedules = Schedule.objects.filter(trip=trip).order_by('departure_time')
-
                         last_schedule = None
                         for sched in schedules:
                             if sched.departure_time < current_time:
@@ -106,3 +101,96 @@ def search_routes(request):
         'routes_with_path': routes_with_path,
         'buses_info': buses_info
     })
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.utils import timezone
+from django.http import JsonResponse
+from .models import Trip, Schedule, Card, Ticket
+
+@csrf_exempt
+@require_POST
+def f(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    bus_id = request.POST.get("busid")
+    on_flag = request.POST.get("on")
+    card_id = request.POST.get("card_id")
+
+    if on_flag not in ["1", "0"]:
+        return JsonResponse({"error": "'on' must be '1' or '0'"}, status=400)
+
+    # Find today's active trip for this bus
+    today = timezone.localdate()
+    try:
+        trip = Trip.objects.get(bus=bus_id, date=today, is_ended=False)
+    except Trip.DoesNotExist:
+        return JsonResponse({"error": "No active trip for this bus today"}, status=404)
+
+    # Determine current stopage = last arrival on this trip
+    last_sched = (
+        Schedule.objects
+        .filter(trip=trip)
+        .order_by("-arrival_time")
+        .first()
+    )
+    current_stopage = last_sched.stopage if last_sched else None
+
+    if not current_stopage:
+        return JsonResponse({"error": "No stopage data available for current trip"}, status=404)
+
+    # Handle start of journey
+    if on_flag == "1":
+        try:
+            card = Card.objects.get(card_id=card_id, availability=True)
+        except Card.DoesNotExist:
+            return JsonResponse({"error": "Invalid or unavailable card"}, status=404)
+
+        # Create ticket with start_stopage
+        ticket = Ticket.objects.create(
+            trip=trip,
+            card=card,
+            start_stopage=current_stopage,
+            end_stopage=None,
+            price=0
+        )
+
+        # Mark card unavailable
+        card.availability = False
+        card.save(update_fields=["availability"])
+
+        return JsonResponse({
+            "status": "journey_start_recorded",
+            "trip_id": trip.trip_id,
+            "start_stopage": current_stopage.name,
+            "ticket_id": ticket.pk
+        })
+
+    # Handle end of journey
+    elif on_flag == "0":
+        try:
+            card = Card.objects.get(card_id=card_id, availability=False)
+        except Card.DoesNotExist:
+            return JsonResponse({"error": "Card not found or not currently in use"}, status=404)
+
+        try:
+            ticket = Ticket.objects.filter(card=card, trip=trip, end_stopage__isnull=True).latest('id')
+        except Ticket.DoesNotExist:
+            return JsonResponse({"error": "No active ticket found for this card"}, status=404)
+
+        # Update ticket with end stopage and price (if needed)
+        ticket.end_stopage = current_stopage
+        ticket.save(update_fields=["end_stopage"])
+
+        # Mark card available again
+        card.availability = True
+        card.save(update_fields=["availability"])
+
+        return JsonResponse({
+            "status": "journey_end_recorded",
+            "trip_id": trip.trip_id,
+            "start_stopage": ticket.start_stopage.name if ticket.start_stopage else None,
+            "end_stopage": current_stopage.name,
+            "ticket_id": ticket.pk
+        })
