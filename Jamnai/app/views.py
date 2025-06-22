@@ -154,11 +154,11 @@ def f(request):
             end_stopage=None,
             price=0
         )
-
+        trip.available_seats -= 1
+        trip.save(update_fields=["available_seats"])
         # Mark card unavailable
         card.availability = False
         card.save(update_fields=["availability"])
-
         return JsonResponse({
             "status": "journey_start_recorded",
             "trip_id": trip.trip_id,
@@ -185,7 +185,8 @@ def f(request):
         # Mark card available again
         card.availability = True
         card.save(update_fields=["availability"])
-
+        trip.available_seats += 1
+        trip.save(update_fields=["available_seats"])    
         return JsonResponse({
             "status": "journey_end_recorded",
             "trip_id": trip.trip_id,
@@ -194,10 +195,8 @@ def f(request):
             "ticket_id": ticket.pk
         })
     
-
 from django.http import JsonResponse
 from app.models import Road, Stopage, ImgNow 
-
 
 def g(request):
     road_ids = request.GET.getlist('roadid[]')  # Get list of road IDs
@@ -244,7 +243,6 @@ def setg_view(request):
 
     if not (stopage_id and road_id and val):
         return JsonResponse({"error": "Missing parameters"}, status=400)
-
     try:
         stopage = Stopage.objects.get(pk=stopage_id)
         road = Road.objects.get(pk=road_id)

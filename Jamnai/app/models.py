@@ -65,7 +65,9 @@ class Trip(models.Model):
     bus = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, limit_choices_to={'role': 'bus'})
     date = models.DateField()
     is_ended = models.BooleanField(default=False)  # marks if trip has ended
-
+    available_seats = models.PositiveIntegerField(default=50)  # assuming a bus has 50 seats
+    total_seats = models.PositiveIntegerField(default=50)  # total seats in the bus
+    start_time = models.TimeField(null=True, blank=True)  # trip start time
     def __str__(self):
         status = 'Ended' if self.is_ended else 'Ongoing'
         return f"Trip {self.trip_id} - Bus {self.bus} on Route {self.route} - {status}"
