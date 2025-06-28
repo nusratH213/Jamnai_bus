@@ -42,18 +42,15 @@ from app.models import Route, RouteStopage, Trip, Schedule, Stopage
 def search_routes(request):
     routes_with_path = []
     buses_info = []
-
     if request.method == "POST":
         source = request.POST.get("source").strip().lower()
         destination = request.POST.get("destination").strip().lower()
         print(f"Searching routes from {source} to {destination}")
-
         current_time = timezone.localtime().time()
         for route in Route.objects.all():
             route_stopages = RouteStopage.objects.filter(route=route).order_by('order')
             stopage_names = [rs.stopage.name for rs in route_stopages]
             stopage_names = [name.strip().lower() for name in stopage_names]
-
             # print(f"Checking route {route.route_id} with stopages: {stopage_names}")
 
             if source in stopage_names and destination in stopage_names:
@@ -116,6 +113,7 @@ def f(request):
     bus_id = request.POST.get("busid")
     on_flag = request.POST.get("on")
     card_id = request.POST.get("card_id")
+    print(f"Received request for bus {bus_id}, on_flag: {on_flag}, card_id: {card_id}")
 
     if on_flag not in ["1", "0"]:
         return JsonResponse({"error": "'on' must be '1' or '0'"}, status=400)
@@ -126,7 +124,7 @@ def f(request):
         trip = Trip.objects.get(bus=bus_id, date=today, is_ended=False)
     except Trip.DoesNotExist:
         return JsonResponse({"error": "No active trip for this bus today"}, status=404)
-
+    
     # Determine current stopage = last arrival on this trip
     last_sched = (
         Schedule.objects
@@ -196,33 +194,30 @@ def f(request):
         })
     
 from django.http import JsonResponse
-from app.models import Road, Stopage, ImgNow 
-
+from app.models import Road, Stopage, ImgNow
+mp={'1': "left", '2': "right", '3': "top"}
 def g(request):
     road_ids = request.GET.getlist('roadid[]')  # Get list of road IDs
     stopage_id = request.GET.get('stopageid')
 
     if not road_ids or not stopage_id:
         return JsonResponse({"error": "Missing roadid[] or stopageid"}, status=400)
-
     try:
         stopage = Stopage.objects.get(pk=stopage_id)
     except Stopage.DoesNotExist:
         return JsonResponse({"error": "Stopage not found"}, status=404)
-
-    data = []
+    data = {}
 
     for rid in road_ids:
         try:
             road = Road.objects.get(pk=rid)
         except Road.DoesNotExist:
-            data.append(None)  # Or skip, depending on your choice
+            data[mp[rid]] = 0
             continue
 
         # Get latest ImgNow for this road and stopage
         latest = ImgNow.objects.filter(road=road, stopage=stopage).order_by('-time').first()
-
-        data.append(latest.value if latest else None)
+        data[mp[rid]] =latest.value if latest else 0  # Get the value or None if no record found
 
     return JsonResponse({
         "stopage_id": stopage_id,
@@ -268,3 +263,257 @@ def setg_view(request):
         "value": value
     })
 
+
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+
+from app.models import User, Owner, Trip
+
+
+
+@api_view(['GET'])
+def get_buses(request):
+    owner_id = request.query_params.get('owner_id')
+    print(f"Received request to get buses for owner_id: {owner_id}")
+
+    if not owner_id:
+        return Response({"error": "Missing owner_id parameter"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        owner = User.objects.get(id=owner_id, role='Owner')
+    except User.DoesNotExist:
+        return Response({"error": "Owner not found or invalid role"}, status=status.HTTP_404_NOT_FOUND)
+    # Step 1: Get all buses owned by this owner
+    owned_bus_ids = Owner.objects.filter(owner=owner).values_list('bus__id', flat=True)
+
+    # Step 2: Get buses in ongoing trips (not ended)
+    active_bus_ids = Trip.objects.filter(is_ended=False).values_list('bus__id', flat=True)
+
+    # Step 3: Exclude active buses from owned buses
+    available_buses = User.objects.filter(id__in=owned_bus_ids).exclude(id__in=active_bus_ids)
+    # Step 4: Serialize the result
+    buses_data = [{"id": bus.id} for bus in available_buses]  # You can extend this with other fields
+    routes=Route.objects.all().values('route_id', 'start_stopage__name', 'end_stopage__name')
+    data={
+        "buses": buses_data,
+        "routes": list(routes)
+    }
+    return Response(data, status=status.HTTP_200_OK)
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.utils import timezone
+
+from app.models import Trip, Owner, RouteStopage, Schedule, Route
+
+@api_view(['POST'])
+# @permission_classes([IsAuthenticated])  # Use IsAdminUser if you have that set up
+def setbus(request):
+
+    data = request.data
+    print(f"Received request to set bus with data: {data}")
+    admin_user =User.objects.get(id=data["owner_id"], role='Owner')  # Assuming you have a way to get the admin user
+
+    # Only admin users allowed
+    if admin_user.role != 'Owner':
+        return Response({"error": "Only admins can perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
+    bus_id = data.get('bus_id')
+    route_id = data.get('route_id')
+    owner_id = data.get('owner_id')
+    print(f"Bus ID: {bus_id}, Route ID: {route_id}, Owner ID: {owner_id}")
+
+    # Basic validation
+    if not all([bus_id, route_id, owner_id]):
+        return Response({"error": "bus_id, route_id, and owner_id are required."}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Check bus exists and has role 'bus'
+    try:
+        bus = User.objects.get(id=bus_id, role='bus')
+    except User.DoesNotExist:
+        return Response({"error": "Bus not found or invalid role."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Check owner exists and has role 'owner'
+    try:
+        owner = User.objects.get(id=owner_id, role='owner')
+    except User.DoesNotExist:
+        return Response({"error": "Owner not found or invalid role."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Check if the bus is actually owned by the owner
+    if not Owner.objects.filter(bus=bus, owner=owner).exists():
+        return Response({"error": "This bus does not belong to the specified owner."}, status=status.HTTP_403_FORBIDDEN)
+
+    # Get the route
+    try:
+        route = Route.objects.get(route_id=route_id)
+    except Route.DoesNotExist:
+        return Response({"error": "Route not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Create new Trip
+    from uuid import uuid4
+    trip = Trip.objects.create(
+        trip_id=f"TRIP-{uuid4().hex[:8]}",
+        route=route,
+        bus=bus,
+        date=timezone.now().date(),
+        is_ended=False,
+        available_seats=50,
+        total_seats=50,
+        start_time=None
+    )
+
+    # Get first stopage of the route
+    first_route_stopage = RouteStopage.objects.filter(route=route).order_by('order').first()
+    if not first_route_stopage:
+        return Response({"error": "Route has no stopages defined."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Create Schedule for first stopage with only arrival time
+    Schedule.objects.create(
+        trip=trip,
+        stopage=first_route_stopage.stopage,
+        arrival_time=timezone.now().time(),  # Use current time
+    )
+
+        # departure_time=timezone.now().time()  # Optional: can leave as same or None
+
+    return Response({
+        "message": "Trip and initial schedule created successfully.",
+        "trip_id": trip.trip_id,
+        "bus_id": bus_id,
+        "route_id": route_id,
+        "stopage": first_route_stopage.stopage.name
+    }, status=status.HTTP_201_CREATED)
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from app.models import Trip, RouteStopage, Schedule
+
+@api_view(['GET'])
+def getstop(request):
+    bus_id = request.query_params.get('bus_id')
+    print(f"Received request to get next stopage for bus_id: {bus_id}")
+
+    if not bus_id:
+        return Response({"error": "Missing bus_id"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        bus = User.objects.get(id=bus_id, role='Bus')
+    except User.DoesNotExist:
+        return Response({"error": "Invalid bus_id or not a bus role"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Find active trip
+    try:
+        trip = Trip.objects.get(bus_id=bus, is_ended=0)
+    except Trip.DoesNotExist:
+        return Response({"message": "Wait until owner starts the trip."}, status=status.HTTP_200_OK)
+
+    route = trip.route
+    # All stopages in the route in order
+    route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
+
+    # All stopages that have been departed from (departure_time set in schedule)
+    departed_stopage_ids = set(
+        Schedule.objects.filter(trip=trip).exclude(departure_time__isnull=True).values_list('stopage__id', flat=True)
+    )
+
+    # Find index of last departed stopage in the route
+    last_index = -1
+    for i, rs in enumerate(route_stopages):
+        if rs.stopage.id in departed_stopage_ids:
+            last_index = i
+
+    # Determine next stopage
+    next_index = last_index + 1
+    if next_index < len(route_stopages):
+        next_stopage = route_stopages[next_index].stopage
+        return Response({
+            "next_stopage": next_stopage.name
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({
+            "message": "Trip completed or no further stopages."
+        }, status=status.HTTP_200_OK)
+    
+
+
+
+from rest_framework.response import Response
+from rest_framework import status
+from app.models import Trip, Schedule, Stopage
+
+
+@api_view(['POST'])
+def updatestop(request):
+    data = request.data
+    bus_id = data.get('bus_id')
+    stopage_id = data.get('stopage_id')
+    arrive_flag = data.get('arrive')
+    print(f"Received request to update stopage for bus_id: {bus_id}, stopage_id: {stopage_id}, arrive_flag: {arrive_flag}")
+
+    # Validate input
+    if not all([bus_id, stopage_id]) or arrive_flag not in [0, 1, '0', '1']:
+        return Response({"error": "bus_id, stopage_id, and arrive (0 or 1) are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Convert to integer
+    arrive_flag = int(arrive_flag)
+
+    # Validate bus
+    try:
+        bus = User.objects.get(id=bus_id, role='bus')
+    except User.DoesNotExist:
+        return Response({"error": "Invalid bus_id or user is not a bus."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Validate stopage
+    try:
+        stopage = Stopage.objects.get(name=stopage_id)
+    except Stopage.DoesNotExist:
+        return Response({"error": "Stopage not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    # Get active trip
+    try:
+        trip = Trip.objects.get(bus=bus, is_ended=False)
+    except Trip.DoesNotExist:
+        return Response({"error": "No active trip for this bus."}, status=status.HTTP_404_NOT_FOUND)
+
+
+    now_time = timezone.now().time()
+    if arrive_flag == 1:
+        try:
+            schedule = Schedule.objects.get(trip=trip, stopage=stopage)
+            return Response({"error": "Schedule for this stopage already exists in this trip."}, status=status.HTTP_400_BAD_REQUEST)
+        except Schedule.DoesNotExist:
+            schedule=Schedule.objects.create(
+                trip=trip,
+                stopage=stopage,
+                arrival_time=now_time,
+                departure_time=None 
+            )
+            message = "Arrival time updated."
+
+    else:
+        try:
+            schedule = Schedule.objects.get(trip=trip, stopage=stopage)
+        except Schedule.DoesNotExist:
+            return Response({"error": "Schedule for this stopage not found in this trip."}, status=status.HTTP_404_NOT_FOUND)
+        schedule.departure_time = now_time
+        message = "Departure time updated."
+    routes= Route.objects.get(route_id=trip.route.route_id)
+    if str(stopage.name) == str(routes.end_stopage.name):
+        trip.is_ended = True
+        trip.save(update_fields=["is_ended"])
+        message += " Trip ended."
+    schedule.save()
+    return Response({
+        "message": message,
+        "trip_id": trip.trip_id,
+        "stopage": stopage.name,
+        "time": str(now_time),
+        "end": trip.is_ended,
+    }, status=status.HTTP_200_OK)

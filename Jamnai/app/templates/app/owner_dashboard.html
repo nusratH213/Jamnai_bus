@@ -14,7 +14,6 @@
 <body>
     <div class="container">
         <h1>Owner Dashboard</h1>
-
         <h3>Start Journey</h3>
         <form method="post" action="/start-bus/">
             {% csrf_token %}
@@ -26,7 +25,6 @@
             </select>
             <button type="submit">Start Bus</button>
         </form>
-
         <h3>End Journey at Jatrabari</h3>
         <form method="post" action="/end-bus/">
             {% csrf_token %}

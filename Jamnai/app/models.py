@@ -77,7 +77,7 @@ class Schedule(models.Model):
     trip = models.ForeignKey(Trip, on_delete=models.CASCADE, related_name='schedules')
     stopage = models.ForeignKey(Stopage, on_delete=models.CASCADE)
     arrival_time = models.TimeField()
-    departure_time = models.TimeField()
+    departure_time = models.TimeField(null=True, blank=True)  # Optional, can be same as arrival_time
 
     class Meta:
         ordering = ['arrival_time']
@@ -118,3 +118,26 @@ class ImgNow(models.Model):
 
     def __str__(self):
         return f"ImgNow | Road: {self.road.road_id}, Stopage: {self.stopage.name}, Value: {self.value}, Time: {self.time}"
+
+
+from django.conf import settings
+
+class Owner(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'Owner'},
+        related_name='owned_buses'
+    )
+    bus = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'Bus'},
+        related_name='bus_owner'
+    )
+
+    class Meta:
+        unique_together = ('owner', 'bus')  # Prevent duplicate owner-bus entries
+
+    def __str__(self):
+        return f"Owner: {self.owner.id} ➝ Bus: {self.bus.id}"

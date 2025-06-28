@@ -101,3 +101,12 @@ class ScheduleAdmin(admin.ModelAdmin):
     list_display = ('trip', 'stopage', 'arrival_time', 'departure_time')
     list_filter = ('stopage',)
     search_fields = ('trip__trip_id', 'stopage__name')
+
+from .models import Owner
+@admin.register(Owner)
+class OwnerAdmin(admin.ModelAdmin):
+    list_display = ('bus_id', 'owner_id', )
+    search_fields = ('bus_id','owner_id')
+    list_filter = ('owner_id', 'bus_id')
+
+
