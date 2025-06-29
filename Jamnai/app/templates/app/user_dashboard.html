@@ -56,16 +56,19 @@
 </style>
 
 <div class="container">
-    <form class="input-form" method="POST">
-        {% csrf_token %}
-        <label for="source">Source:</label>
-        <input type="text" id="source" name="source" required>
+        <form class="input-form" method="POST">
+            {% csrf_token %}
+            <label for="source">Source:</label>
+            <input type="text" id="source" name="source" list="stopage-list" required>
 
-        <label for="destination">Destination:</label>
-        <input type="text" id="destination" name="destination" required>
+            <label for="destination">Destination:</label>
+            <input type="text" id="destination" name="destination" list="stopage-list" required>
 
-        <button type="submit">Submit</button>
-    </form>
+            <datalist id="stopage-list"></datalist>
+
+            <button type="submit">Submit</button>
+        </form>
+
 
     {% if routes_with_path %}
         <div class="route-box">
@@ -96,7 +99,7 @@
                 <td>{{ bus.bus_id }}</td>
                 <td>{{ bus.last_stopage }}</td>
                 <td>{{ bus.last_departure }}</td>
-                <td>{{ bus.estimated }}</td>
+                <td>{{ bus.estimated_time }}</td>
                 <td>{{ bus.updated_at|date:"h:i A" }}</td>
             </tr>
             {% empty %}
@@ -104,13 +107,32 @@
             {% endfor %}
         </tbody>
     </table>
-    <div class="status-log">
+    <!-- <div class="status-log">
         <h4>Recent Activity Logs</h4>
         <ul>
             <li>[09:03 AM] Manager at Kazipara confirmed arrival</li>
             <li>[08:55 AM] Bus-101 started from Mirpur 10</li>
             <li>[08:40 AM] Bus-103 completed journey at Jatrabari</li>
         </ul>
-    </div>
+    </div> -->
 </div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        fetch('/gets/')
+            .then(response => response.json())
+            .then(data => {
+                const list = document.getElementById('stopage-list');
+                if (data.destinations) {
+                    data.destinations.forEach(stopage => {
+                        const option = document.createElement('option');
+                        option.value = stopage;
+                        list.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => console.error('Error loading stopages:', error));
+    });
+</script>
+
 {% endblock %}

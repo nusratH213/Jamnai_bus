@@ -18,7 +18,9 @@
         <div class="nav-right">
             <ul>
                 {% if user.is_authenticated %}
-                    <li><a href="{% url 'home' %}">Profile</a></li>
+                    <li><a href="{% url 'search' %}">Home</a></li>
+                    <li><a href="{% url 'bus' %}">Bus Manager</a></li>
+                    <li><a href="{% url 'owner' %}">Owner</a></li>
                     <li><a href="{% url 'logout' %}">Logout</a></li>
                 {% else %}
                     <li><a href="{% url 'login' %}">Login</a></li>

@@ -19,7 +19,7 @@ def user_login(request):
                 login(request, user)
                 # print(f"User {username} logged in successfully.")
                 # messages.success(request, f"Welcome, {username}!")
-                return redirect('')  # Redirect to some home page or dashboard
+                return redirect('search')  # Redirect to some home page or dashboard
             else:
                 messages.error(request, "Invalid username or password.")
         else:
@@ -50,8 +50,11 @@ def search_routes(request):
             stopage_names = [rs.stopage.name.strip().lower() for rs in route_stopages]
 
             if source in stopage_names and destination in stopage_names:
-                source_index = stopage_names.index(source)
-                dest_index = stopage_names.index(destination)
+                source_index = stopage_names.index(source)+1
+                # print(stopage_names)
+                # for i in stopage_names:
+                #     print(f"Stopage: {i}: {stopage_names.index(i)}, Order: {RouteStopage.objects.get(route=route, stopage__name=i).order}")
+                dest_index = stopage_names.index(destination)+1
 
                 if source_index < dest_index:
                     # Valid route in correct direction
@@ -65,24 +68,33 @@ def search_routes(request):
                     trips = Trip.objects.filter(route=route, is_ended=False)
                     for trip in trips:
                         schedules = Schedule.objects.filter(trip=trip).order_by('departure_time')
+                        it=Schedule.objects.filter(trip=trip).order_by('departure_time').exclude(departure_time__isnull=True)
+                        big=None
+                        for i in it:
+                            if(big is None or i.departure_time > big.departure_time):
+                                big=i
+                        print(f"Schedules for trip {trip.trip_id}: {schedules}")
                         last_schedule = None
                         for sched in schedules:
-                            if sched.departure_time and sched.departure_time < current_time:
+                            if (sched.departure_time and sched.departure_time < current_time) or not sched.departure_time:
                                 last_schedule = sched
                             else:
                                 break
-                    print(f"Last schedule for trip {trip.trip_id}: {last_schedule}")
+                        # print(f"Last schedule for trip {trip.trip_id}: {last_schedule}")
+                        last_schedule= schedules.filter(departure_time__isnull=True).last() if schedules.filter(departure_time__isnull=True).last()  else last_schedule
                         if last_schedule:
                             try:
                                 stop_order = RouteStopage.objects.get(route=route, stopage=last_schedule.stopage).order
+                                print(f"Stop order for last schedule: {stop_order} and source index: {source_index}")
                                 if stop_order <= source_index:
                                     buses_info.append({
                                         'bus_id': trip.bus.id,
                                         'last_stopage': last_schedule.stopage.name,
-                                        'last_departure': last_schedule.departure_time,
-                                        'estimated': (datetime.combine(datetime.today(), last_schedule.departure_time) + timedelta(minutes=30)).time(),
+                                        'last_departure': big.departure_time if big else None,
+                                        'estimated_time': 0 if(str(last_schedule.stopage.name).lower() == str(source).lower()) else  (datetime.combine(datetime.today(), last_schedule.departure_time) + timedelta(minutes=30)).time() if last_schedule.departure_time else "inf",
                                         'updated_at': timezone.localtime()
                                     })
+                                # print(f"Bus {trip.bus.id} last stopage: {last_schedule.stopage.name if last_schedule else 'N/A'}")
                             except RouteStopage.DoesNotExist:
                                 continue
 
@@ -592,3 +604,11 @@ def bus_dashboard(request):
         "trip": trip,
         "bus_id": bus_id
     })
+from django.http import JsonResponse
+from app.models import Stopage
+
+def gets(request):
+    dest = Stopage.objects.all().values_list('name', flat=True)
+    return JsonResponse({"destinations": list(dest)})
+
+
