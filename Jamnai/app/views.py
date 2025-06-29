@@ -19,7 +19,7 @@ def user_login(request):
                 login(request, user)
                 # print(f"User {username} logged in successfully.")
                 # messages.success(request, f"Welcome, {username}!")
-                return redirect('home')  # Redirect to some home page or dashboard
+                return redirect('')  # Redirect to some home page or dashboard
             else:
                 messages.error(request, "Invalid username or password.")
         else:
@@ -35,97 +35,111 @@ def user_logout(request):
     logout(request)
     return redirect('login')
 
-from datetime import datetime, timedelta
 from django.utils import timezone
-from app.models import Route, RouteStopage, Trip, Schedule, Stopage
-
+from datetime import datetime, timedelta
 def search_routes(request):
     routes_with_path = []
     buses_info = []
+
     if request.method == "POST":
-        source = request.POST.get("source").strip().lower()
-        destination = request.POST.get("destination").strip().lower()
-        print(f"Searching routes from {source} to {destination}")
+        source = request.POST.get("source", "").strip().lower()
+        destination = request.POST.get("destination", "").strip().lower()
         current_time = timezone.localtime().time()
         for route in Route.objects.all():
-            route_stopages = RouteStopage.objects.filter(route=route).order_by('order')
-            stopage_names = [rs.stopage.name for rs in route_stopages]
-            stopage_names = [name.strip().lower() for name in stopage_names]
-            # print(f"Checking route {route.route_id} with stopages: {stopage_names}")
+            route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
+            stopage_names = [rs.stopage.name.strip().lower() for rs in route_stopages]
 
             if source in stopage_names and destination in stopage_names:
                 source_index = stopage_names.index(source)
                 dest_index = stopage_names.index(destination)
 
                 if source_index < dest_index:
-                    # Valid route with ordered source → destination
+                    # Valid route in correct direction
                     original_names = [rs.stopage.name for rs in route_stopages]
                     routes_with_path.append({
                         'route': route,
                         'stopages': original_names
                     })
-                    # print(f"Found valid route {route.route_id} from {source} to {destination}")
 
-                    # Fetch all ongoing trips for this route
+                    # Ongoing trips
                     trips = Trip.objects.filter(route=route, is_ended=False)
-
                     for trip in trips:
                         schedules = Schedule.objects.filter(trip=trip).order_by('departure_time')
                         last_schedule = None
                         for sched in schedules:
-                            if sched.departure_time < current_time:
+                            if sched.departure_time and sched.departure_time < current_time:
                                 last_schedule = sched
                             else:
                                 break
-
+                    print(f"Last schedule for trip {trip.trip_id}: {last_schedule}")
                         if last_schedule:
                             try:
-                                stop_order = route_stopages.get(stopage=last_schedule.stopage).order
-                                if stop_order < source_index:
+                                stop_order = RouteStopage.objects.get(route=route, stopage=last_schedule.stopage).order
+                                if stop_order <= source_index:
                                     buses_info.append({
                                         'bus_id': trip.bus.id,
                                         'last_stopage': last_schedule.stopage.name,
                                         'last_departure': last_schedule.departure_time,
                                         'estimated': (datetime.combine(datetime.today(), last_schedule.departure_time) + timedelta(minutes=30)).time(),
-                                        'updated_at': timezone.now()
+                                        'updated_at': timezone.localtime()
                                     })
                             except RouteStopage.DoesNotExist:
                                 continue
-    # print(f"Found {len(routes_with_path)} routes with path from {source} to {destination}")
-    # print(f"Found {len(buses_info)} buses with info for the given routes")
+
     return render(request, 'app/user_dashboard.html', {
         'routes_with_path': routes_with_path,
         'buses_info': buses_info
     })
+   
+
 
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.http import HttpResponse
 from django.utils import timezone
-from django.http import JsonResponse
-from .models import Trip, Schedule, Card, Ticket
+import json
 
 @csrf_exempt
 @require_POST
 def f(request):
     if request.method != "POST":
-        return JsonResponse({"error": "Invalid request method"}, status=405)
+        return HttpResponse(
+            json.dumps({"error": "Invalid request method"}),
+            content_type="application/json",
+            status=405
+        )
 
-    bus_id = request.POST.get("busid")
-    on_flag = request.POST.get("on")
-    card_id = request.POST.get("card_id")
+    try:
+        data = json.loads(request.body)
+        bus_id = data.get("busid")
+        on_flag = data.get("on")
+        card_id = data.get("card_id")
+    except Exception as e:
+        return HttpResponse(
+            json.dumps({"error": f"Invalid JSON data: {str(e)}"}),
+            content_type="application/json",
+            status=400
+        )
+
     print(f"Received request for bus {bus_id}, on_flag: {on_flag}, card_id: {card_id}")
 
-    if on_flag not in ["1", "0"]:
-        return JsonResponse({"error": "'on' must be '1' or '0'"}, status=400)
+    if on_flag not in [1, 0, '1', '0', "1", "0"]:
+        return HttpResponse(
+            json.dumps({"error": "'on' must be '1' or '0'"}),
+            content_type="application/json",
+            status=400
+        )
 
-    # Find today's active trip for this bus
     today = timezone.localdate()
     try:
         trip = Trip.objects.get(bus=bus_id, date=today, is_ended=False)
     except Trip.DoesNotExist:
-        return JsonResponse({"error": "No active trip for this bus today"}, status=404)
-    
-    # Determine current stopage = last arrival on this trip
+        return HttpResponse(
+            json.dumps({"error": "No active trip for this bus today"}),
+            content_type="application/json",
+            status=404
+        )
+
     last_sched = (
         Schedule.objects
         .filter(trip=trip)
@@ -133,18 +147,26 @@ def f(request):
         .first()
     )
     current_stopage = last_sched.stopage if last_sched else None
+    print(f"Current stopage for trip {trip.trip_id}: {current_stopage}")
 
     if not current_stopage:
-        return JsonResponse({"error": "No stopage data available for current trip"}, status=404)
+        return HttpResponse(
+            json.dumps({"error": "No stopage data available for current trip"}),
+            content_type="application/json",
+            status=404
+        )
 
     # Handle start of journey
-    if on_flag == "1":
+    if on_flag in [1, '1', "1"]:
         try:
             card = Card.objects.get(card_id=card_id, availability=True)
         except Card.DoesNotExist:
-            return JsonResponse({"error": "Invalid or unavailable card"}, status=404)
+            return HttpResponse(
+                json.dumps({"error": "Invalid or unavailable card"}),
+                content_type="application/json",
+                status=404
+            )
 
-        # Create ticket with start_stopage
         ticket = Ticket.objects.create(
             trip=trip,
             card=card,
@@ -154,45 +176,63 @@ def f(request):
         )
         trip.available_seats -= 1
         trip.save(update_fields=["available_seats"])
-        # Mark card unavailable
+
         card.availability = False
         card.save(update_fields=["availability"])
-        return JsonResponse({
-            "status": "journey_start_recorded",
-            "trip_id": trip.trip_id,
-            "start_stopage": current_stopage.name,
-            "ticket_id": ticket.pk
-        })
+
+        return HttpResponse(
+            json.dumps({
+                "status": "journey_start_recorded",
+                "trip_id": trip.trip_id,
+                "start_stopage": current_stopage.name,
+                "ticket_id": ticket.pk
+            }),
+            content_type="application/json"
+        )
 
     # Handle end of journey
-    elif on_flag == "0":
+    elif on_flag in [0, '0', "0"]:
         try:
             card = Card.objects.get(card_id=card_id, availability=False)
         except Card.DoesNotExist:
-            return JsonResponse({"error": "Card not found or not currently in use"}, status=404)
+            return HttpResponse(
+                json.dumps({"error": "Card not found or not currently in use"}),
+                content_type="application/json",
+                status=404
+            )
 
         try:
-            ticket = Ticket.objects.filter(card=card, trip=trip, end_stopage__isnull=True).latest('id')
+            ticket = Ticket.objects.filter(
+                card=card,
+                trip=trip,
+                end_stopage__isnull=True
+            ).latest('id')
         except Ticket.DoesNotExist:
-            return JsonResponse({"error": "No active ticket found for this card"}, status=404)
+            return HttpResponse(
+                json.dumps({"error": "No active ticket found for this card"}),
+                content_type="application/json",
+                status=404
+            )
 
-        # Update ticket with end stopage and price (if needed)
         ticket.end_stopage = current_stopage
         ticket.save(update_fields=["end_stopage"])
 
-        # Mark card available again
         card.availability = True
         card.save(update_fields=["availability"])
         trip.available_seats += 1
-        trip.save(update_fields=["available_seats"])    
-        return JsonResponse({
-            "status": "journey_end_recorded",
-            "trip_id": trip.trip_id,
-            "start_stopage": ticket.start_stopage.name if ticket.start_stopage else None,
-            "end_stopage": current_stopage.name,
-            "ticket_id": ticket.pk
-        })
-    
+        trip.save(update_fields=["available_seats"])
+
+        return HttpResponse(
+            json.dumps({
+                "status": "journey_end_recorded",
+                "trip_id": trip.trip_id,
+                "start_stopage": ticket.start_stopage.name if ticket.start_stopage else None,
+                "end_stopage": current_stopage.name,
+                "ticket_id": ticket.pk
+            }),
+            content_type="application/json"
+        )
+
 from django.http import JsonResponse
 from app.models import Road, Stopage, ImgNow
 mp={'1': "left", '2': "right", '3': "top"}
@@ -262,9 +302,6 @@ def setg_view(request):
         "road": road.name,
         "value": value
     })
-
-
-
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -394,10 +431,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from app.models import Trip, RouteStopage, Schedule
-
+@login_required 
 @api_view(['GET'])
 def getstop(request):
-    bus_id = request.query_params.get('bus_id')
+    bus_id=request.user.id
     print(f"Received request to get next stopage for bus_id: {bus_id}")
 
     if not bus_id:
@@ -421,6 +458,9 @@ def getstop(request):
     # All stopages that have been departed from (departure_time set in schedule)
     departed_stopage_ids = set(
         Schedule.objects.filter(trip=trip).exclude(departure_time__isnull=True).values_list('stopage__id', flat=True)
+    )  
+    at = set(
+        Schedule.objects.filter(trip=trip,departure_time__isnull=True).values_list('stopage__id', flat=True)
     )
 
     # Find index of last departed stopage in the route
@@ -428,13 +468,14 @@ def getstop(request):
     for i, rs in enumerate(route_stopages):
         if rs.stopage.id in departed_stopage_ids:
             last_index = i
-
     # Determine next stopage
     next_index = last_index + 1
     if next_index < len(route_stopages):
         next_stopage = route_stopages[next_index].stopage
         return Response({
-            "next_stopage": next_stopage.name
+            "next_stopage": next_stopage.name,
+            "stat": 1 if len(at) != 0 else 0
+
         }, status=status.HTTP_200_OK)
     else:
         return Response({
@@ -447,7 +488,6 @@ def getstop(request):
 from rest_framework.response import Response
 from rest_framework import status
 from app.models import Trip, Schedule, Stopage
-
 
 @api_view(['POST'])
 def updatestop(request):
@@ -517,3 +557,38 @@ def updatestop(request):
         "time": str(now_time),
         "end": trip.is_ended,
     }, status=status.HTTP_200_OK)
+
+@login_required
+def ownerview(request):
+    if request.user.role != 'Owner':
+        return HttpResponse("You are not authorized to view this page.", status=403)
+
+    owner_id = request.user.id
+    print(f"Rendering owner dashboard for owner_id: {owner_id}")
+
+    # Fetch all buses owned by this owner
+    owned_buses = Owner.objects.filter(owner__id=owner_id).values_list('bus__id', flat=True)
+    buses = User.objects.filter(id__in=owned_buses, role='bus')
+
+    return render(request, "app/owner_dashboard.html", {
+        "buses": buses,
+        "owner_id": owner_id
+    })
+@login_required
+def bus_dashboard(request):
+    if request.user.role != 'Bus':
+        return HttpResponse("You are not authorized to view this page.", status=403)
+
+    bus_id = request.user.id
+    print(f"Rendering bus dashboard for bus_id: {bus_id}")
+
+    # Fetch the active trip for this bus
+    try:
+        trip = Trip.objects.get(bus__id=bus_id, is_ended=False)
+    except Trip.DoesNotExist:
+        trip = None
+
+    return render(request, "app/bus_dashboard.html", {
+        "trip": trip,
+        "bus_id": bus_id
+    })

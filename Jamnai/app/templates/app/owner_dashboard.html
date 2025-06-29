@@ -1,53 +1,85 @@
+{% extends 'app/head.html' %}
+{% block title %}Owner Dashboard{% endblock %}
+{% block navbar_heading %}Owner Dashboard{% endblock %}
+{% block content %}
+<style>
+    body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+    select, button { padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+</style>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Owner Dashboard</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
-        select, button { padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; }
-        button:hover { background: #0056b3; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Owner Dashboard</h1>
-        <h3>Start Journey</h3>
-        <form method="post" action="/start-bus/">
-            {% csrf_token %}
-            <label for="bus_id_start">Select Bus:</label>
-            <select name="bus_id" id="bus_id_start">
-                <option value="101">Bus-101</option>
-                <option value="102">Bus-102</option>
-                <option value="103">Bus-103</option>
-            </select>
-            <button type="submit">Start Bus</button>
-        </form>
-        <h3>End Journey at Jatrabari</h3>
-        <form method="post" action="/end-bus/">
-            {% csrf_token %}
-            <label for="bus_id_end">Select Bus:</label>
-            <select name="bus_id" id="bus_id_end">
-                <option value="101">Bus-101</option>
-                <option value="102">Bus-102</option>
-                <option value="103">Bus-103</option>
-            </select>
-            <button type="submit">End Journey</button>
-        </form>
+<div class="container">
+    <h1>Owner Dashboard</h1>
+    <h3>Start Journey</h3>
+    <form id="start-journey-form">
+        {% csrf_token %}
+        <label for="bus_id">Select Bus:</label>
+        <select name="bus_id" id="bus_id"></select>
 
-        <h3>Start Reverse Journey</h3>
-        <form method="post" action="/start-reverse/">
-            {% csrf_token %}
-            <label for="bus_id_reverse">Select Bus:</label>
-            <select name="bus_id" id="bus_id_reverse">
-                <option value="101">Bus-101</option>
-                <option value="102">Bus-102</option>
-                <option value="103">Bus-103</option>
-            </select>
-            <button type="submit">Start Reverse</button>
-        </form>
-    </div>
-</body>
-</html>
+        <label for="route_id">Select Route:</label>
+        <select name="route_id" id="route_id"></select>
+
+        <input type="hidden" name="owner_id" id="owner_id" value="{{ user.id }}">
+        <button type="submit">Start Journey</button>
+    </form>
+
+    <div id="message" style="color: green;"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const ownerId = document.getElementById("owner_id").value;
+
+    fetch(`/getbus/?owner_id=${ownerId}`)
+        .then(response => response.json())
+        .then(data => {
+            const busSelect = document.getElementById("bus_id");
+            data.buses.forEach(bus => {
+                const option = document.createElement("option");
+                option.value = bus.id;
+                option.text = `Bus-${bus.id}`;
+                busSelect.appendChild(option);
+            });
+
+            const routeSelect = document.getElementById("route_id");
+            data.routes.forEach(route => {
+                const option = document.createElement("option");
+                option.value = route.route_id;
+                option.text = `${route.start_stopage__name} → ${route.end_stopage__name}`;
+                routeSelect.appendChild(option);
+            });
+        });
+
+    // Handle form submission for starting journey
+    document.getElementById("start-journey-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const busId = document.getElementById("bus_id").value;
+        const routeId = document.getElementById("route_id").value;
+
+        fetch("/setbus/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                bus_id: busId,
+                route_id: routeId,
+                owner_id: ownerId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const msgDiv = document.getElementById("message");
+            if (data.message) {
+                msgDiv.innerText = `✅ ${data.message} | Trip ID: ${data.trip_id}`;
+            } else if (data.error) {
+                msgDiv.innerText = `❌ ${data.error}`;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

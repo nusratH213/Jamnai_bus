@@ -1,0 +1,95 @@
+{% extends 'app/head.html' %}
+{% block title %}Manager Dashboard{% endblock %}
+{% block navbar_heading %}Manager Dashboard{% endblock %}
+{% block content %}
+<style>
+    body { font-family: Arial, sans-serif; background: #e8f5e9; padding: 20px; }
+    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+    button { padding: 10px; margin: 10px 5px 0 0; border-radius: 5px; border: 1px solid #ccc; background: #28a745; color: white; cursor: pointer; }
+    button:hover { background: #1e7e34; }
+</style>
+
+<div class="container">
+    <h1>Bus Manager Dashboard</h1>
+
+    <div id="status">
+        <p>⏳ Loading current stopage...</p>
+    </div>
+
+    <div id="action-buttons" style="margin-top:10px;"></div>
+    <div id="message" style="margin-top:10px; color: green;"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const statusDiv = document.getElementById("status");
+    const actionDiv = document.getElementById("action-buttons");
+    const messageDiv = document.getElementById("message");
+
+    let currentStopage = null;
+    let stat = null;
+
+    function fetchCurrentStopage() {
+        statusDiv.innerHTML = "⏳ Loading current stopage...";
+        actionDiv.innerHTML = "";
+        messageDiv.innerText = "";
+
+        fetch("/getstop/")
+            .then(response => response.json())
+            .then(data => {
+                if (data.next_stopage) {
+                    currentStopage = data.next_stopage;
+                    stat = data.stat;
+                    console.log("Current Stopage:", currentStopage, "Status:", stat);
+                    statusDiv.innerHTML = `<strong>Current Stopage:</strong> ${currentStopage}`;
+                    if(stat == 1) {
+                    actionDiv.innerHTML = `
+                        <button onclick="confirmAction(0)">📤 Confirm Departure</button>
+                    `;
+                    } else {
+                    actionDiv.innerHTML = `
+                        <button onclick="confirmAction(1)">✅ Confirm Arrival</button>
+                        <button onclick="confirmAction(0)">📤 Confirm Departure</button>
+                    `;
+                    }
+                } else {
+                    statusDiv.innerHTML = data.message || "Wait until owner starts the journey.";
+                    currentStopage = null;
+                }
+            });
+    }
+
+    window.confirmAction = function (arriveFlag) {
+        if (!currentStopage) return;
+
+        fetch("/updatestop/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]')?.value || "{{ csrf_token }}"
+            },
+            body: JSON.stringify({
+                bus_id: "{{ user.id }}", 
+                stopage_id: currentStopage,
+                arrive: arriveFlag
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                messageDiv.style.color = "red";
+                messageDiv.innerText = data.error;
+            } else {
+                messageDiv.style.color = "green";
+                messageDiv.innerText = data.message;
+                    setTimeout(fetchCurrentStopage, 1000);
+            }
+            
+        });
+    };
+
+    // Load on page ready
+    fetchCurrentStopage();
+});
+</script>
+{% endblock %}
