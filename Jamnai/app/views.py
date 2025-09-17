@@ -2,13 +2,15 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from .models import Route, RouteStopage, Trip, Schedule, Card, Ticket
+from django.contrib.auth import get_user_model
 
 def cap(request):
     return render(request, "app/cap.html")
 
 def hello_view(request):
     return render(request, "app/user_dashboard.html")
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect   
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
@@ -54,7 +56,6 @@ def search_routes(request):
         for route in Route.objects.all():
             route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
             stopage_names = [rs.stopage.name.strip().lower() for rs in route_stopages]
-
             if source in stopage_names and destination in stopage_names:
                 source_index = stopage_names.index(source)+1
                 # print(stopage_names)
@@ -69,7 +70,6 @@ def search_routes(request):
                         'route': route,
                         'stopages': original_names
                     })
-
                     # Ongoing trips
                     trips = Trip.objects.filter(route=route, is_ended=False)
                     for trip in trips:
@@ -116,7 +116,6 @@ from django.views.decorators.http import require_POST
 from django.http import HttpResponse
 from django.utils import timezone
 import json
-from app.models import Trip, Card, Ticket, Schedule
 
 @csrf_exempt
 @require_POST
@@ -133,6 +132,7 @@ def f(request):
         bus_id = data.get("busid")
         on_flag = data.get("on")
         card_id = data.get("card_id")
+        print(card_id)
     except Exception as e:
         return HttpResponse(
             json.dumps({"error": f"Invalid JSON data: {str(e)}"}),
@@ -235,12 +235,17 @@ def f(request):
 
         ticket.end_stopage = current_stopage
         ticket.save(update_fields=["end_stopage"])
-
+        costs=RouteStopage.objects.get(route_id=trip.route,stopage=ticket.start_stopage).distance_from_last_stopage
+        coste=RouteStopage.objects.get(route_id=trip.route,stopage=current_stopage).distance_from_last_stopage
+        cost=coste-costs
+        cost*=2.5
+        ticket.price=cost
+        card.taka-=cost
         card.availability = True
-        card.save(update_fields=["availability"])
+        ticket.save(update_fields=["price"])
+        card.save(update_fields=["availability","taka"])
         trip.available_seats += 1
         trip.save(update_fields=["available_seats"])
-
         return HttpResponse(
             json.dumps({
                 "status": "journey_end_recorded",
@@ -328,7 +333,6 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from app.models import User, Owner, Trip
-
 
 
 @api_view(['GET'])

@@ -87,8 +87,8 @@ class Schedule(models.Model):
     
 class Card(models.Model):
     card_id = models.CharField(max_length=100, unique=True)
-    availability = models.BooleanField(default=True)  # True = Active/Usable, False = Inactive/Lost
-    
+    availability = models.BooleanField(default=True)
+    taka=models.FloatField(default=0)
     def __str__(self):
         return f"Card {self.card_id} - {'Available' if self.availability else 'Unavailable'}"
     
