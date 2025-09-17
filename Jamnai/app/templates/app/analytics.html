@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus System Analytics Dashboard</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@1.30.1/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .metric-card .card-body {
+            padding: 1.5rem;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 1rem 0;
+        }
+        .filter-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        .spinner-border {
+            color: #667eea;
+        }
+        .nav-pills .nav-link.active {
+            background-color: #667eea;
+        }
+        .table-responsive {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="display-4 text-center text-primary">🚌 JamNai Analytics</h1>
+                <p class="text-center text-muted">Comprehensive analytics and performance insights</p>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="filterType" class="form-label">Analysis Type</label>
+                    <select class="form-select" id="filterType">
+                        <option value="total">Total System</option>
+                        <option value="route">By Route</option>
+                        <option value="bus">By Bus</option>
+                        <option value="daily">Daily Analysis</option>
+                        <option value="hourly">Hourly Analysis</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filterValue" class="form-label">Specific Filter</label>
+                    <select class="form-select" id="filterValue" disabled>
+                        <option value="">Select filter type first</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="timePeriod" class="form-label">Time Period</label>
+                    <select class="form-select" id="timePeriod">
+                        <option value="today">Today</option>
+                        <option value="week" selected>Last 7 Days</option>
+                        <option value="month">Last 30 Days</option>
+                        <option value="year">Last Year</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="loadAnalytics()">
+                        <i class="fas fa-chart-line"></i> Generate Analytics
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="loading" style="display: none;">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading analytics data...</p>
+        </div>
+
+        <!-- Analytics Content -->
+        <div id="analyticsContent" style="display: none;">
+            <!-- Summary Cards -->
+            <div id="summaryCards" class="row mb-4">
+                <!-- Dynamic cards will be inserted here -->
+            </div>
+
+            <!-- Charts Section -->
+            <div class="row">
+                <!-- Revenue Trend Chart -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">📈 Revenue Trend</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="revenueTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hourly Distribution Chart -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">⏰ Hourly Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="hourlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Route Performance Chart -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">🚏 Route Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="routeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bus Performance Chart -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">🚌 Bus Performance</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="busChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stopage Congestion Chart -->
+                <div class="col-lg-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">🚏 Stopage Congestion Analysis</h5>
+                            <small class="text-muted">Passenger boarding and alighting at each stopage</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="stopageChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Tables -->
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <ul class="nav nav-pills card-header-pills" id="tableTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="routes-tab" data-bs-toggle="pill" data-bs-target="#routes" type="button" role="tab">Routes</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="buses-tab" data-bs-toggle="pill" data-bs-target="#buses" type="button" role="tab">Buses</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="daily-tab" data-bs-toggle="pill" data-bs-target="#daily" type="button" role="tab">Daily Breakdown</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="stopages-tab" data-bs-toggle="pill" data-bs-target="#stopages" type="button" role="tab">Stopage Analysis</button>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body">
+                            <div class="tab-content" id="tableTabsContent">
+                                <div class="tab-pane fade show active" id="routes" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="routesTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Route ID</th>
+                                                    <th>Route</th>
+                                                    <th>Trips</th>
+                                                    <th>Tickets</th>
+                                                    <th>Revenue (৳)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="buses" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="busesTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Bus ID</th>
+                                                    <th>Trips</th>
+                                                    <th>Tickets</th>
+                                                    <th>Revenue (৳)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="daily" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="dailyTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Day</th>
+                                                    <th>Trips</th>
+                                                    <th>Tickets</th>
+                                                    <th>Revenue (৳)</th>
+                                                    <th>Avg Ticket (৳)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="stopages" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="stopageTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Stopage</th>
+                                                    <th>Position</th>
+                                                    <th>Boarding</th>
+                                                    <th>Alighting</th>
+                                                    <th>Total Traffic</th>
+                                                    <th>Revenue (৳)</th>
+                                                    <th>Congestion Level</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        let charts = {};
+        
+        // Load filter options on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFilterOptions();
+            loadAnalytics(); // Load default analytics
+        });
+
+        // Filter type change handler
+        document.getElementById('filterType').addEventListener('change', function() {
+            const filterType = this.value;
+            const filterValueSelect = document.getElementById('filterValue');
+            
+            filterValueSelect.disabled = (filterType === 'total' || filterType === 'daily' || filterType === 'hourly');
+            
+            if (!filterValueSelect.disabled) {
+                loadSpecificFilters(filterType);
+            } else {
+                filterValueSelect.innerHTML = '<option value="">Not applicable</option>';
+            }
+        });
+
+        async function loadFilterOptions() {
+            try {
+                const response = await fetch('/analytics/filters/');
+                const data = await response.json();
+                
+                // Store filter options globally
+                window.filterOptions = data;
+            } catch (error) {
+                console.error('Error loading filter options:', error);
+            }
+        }
+
+        function loadSpecificFilters(filterType) {
+            const filterValueSelect = document.getElementById('filterValue');
+            let options = [];
+            
+            if (filterType === 'route' && window.filterOptions) {
+                options = window.filterOptions.routes || [];
+            } else if (filterType === 'bus' && window.filterOptions) {
+                options = window.filterOptions.buses || [];
+            }
+            
+            filterValueSelect.innerHTML = '<option value="">All</option>';
+            options.forEach(option => {
+                filterValueSelect.innerHTML += `<option value="${option.id}">${option.name}</option>`;
+            });
+        }
+
+        async function loadAnalytics() {
+            const filterType = document.getElementById('filterType').value;
+            const filterValue = document.getElementById('filterValue').value;
+            const timePeriod = document.getElementById('timePeriod').value;
+            
+            // Show loading
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('analyticsContent').style.display = 'none';
+            
+            try {
+                const params = new URLSearchParams({
+                    filter: filterType,
+                    value: filterValue || '',
+                    period: timePeriod
+                });
+                
+                const response = await fetch(`/analytics/api/?${params}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                // Render analytics
+                renderAnalytics(data, filterType);
+                
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                alert('Error loading analytics data');
+            } finally {
+                // Hide loading
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('analyticsContent').style.display = 'block';
+            }
+        }
+
+        function renderAnalytics(data, filterType) {
+            // Render summary cards
+            renderSummaryCards(data.summary || {});
+            
+            // Render charts based on filter type
+            if (filterType === 'total') {
+                renderTotalAnalytics(data);
+            } else if (filterType === 'route') {
+                renderRouteAnalytics(data);
+            } else if (filterType === 'bus') {
+                renderBusAnalytics(data);
+            } else if (filterType === 'daily') {
+                renderDailyAnalytics(data);
+            } else if (filterType === 'hourly') {
+                renderHourlyAnalytics(data);
+            }
+        }
+
+        function renderSummaryCards(summary) {
+            const container = document.getElementById('summaryCards');
+            
+            const cards = [
+                { label: 'Total Trips', value: summary.total_trips || 0, icon: '🚌' },
+                { label: 'Total Revenue', value: `৳${(summary.total_revenue || 0).toLocaleString()}`, icon: '💰' },
+                { label: 'Total Tickets', value: summary.total_tickets || 0, icon: '🎫' },
+                { label: 'Avg Ticket Price', value: `৳${(summary.avg_ticket_price || 0).toFixed(2)}`, icon: '📊' }
+            ];
+            
+            container.innerHTML = cards.map(card => `
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="card metric-card">
+                        <div class="card-body text-center">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">${card.icon}</div>
+                            <div class="metric-value">${card.value}</div>
+                            <div class="metric-label">${card.label}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderTotalAnalytics(data) {
+            // Revenue trend chart
+            if (data.daily_trend) {
+                const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.daily_trend.map(d => d.date),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.daily_trend.map(d => d.revenue),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Hourly distribution
+            if (data.hourly_distribution) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                charts.hourly = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.hourly_distribution.map(d => `${d.hour}:00`),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.hourly_distribution.map(d => d.tickets),
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Route performance chart
+            if (data.route_performance) {
+                const ctx = document.getElementById('routeChart').getContext('2d');
+                destroyChart('route');
+                
+                charts.route = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.route_performance.map(r => r.route_id),
+                        datasets: [{
+                            data: data.route_performance.map(r => r.revenue),
+                            backgroundColor: [
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Bus performance chart (top 10)
+            if (data.bus_performance) {
+                const topBuses = data.bus_performance
+                    .sort((a, b) => b.revenue - a.revenue)
+                    .slice(0, 10);
+                
+                const ctx = document.getElementById('busChart').getContext('2d');
+                destroyChart('bus');
+                
+                charts.bus = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: topBuses.map(b => b.bus_id),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: topBuses.map(b => b.revenue),
+                            backgroundColor: 'rgba(118, 75, 162, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Populate tables
+            populateRoutesTable(data.route_performance || []);
+            populateBusesTable(data.bus_performance || []);
+            populateDailyTable(data.daily_trend || []);
+            populateStopageTable(data.stopage_congestion || []);
+
+            // Render stopage congestion chart if available
+            renderStopageChart(data.stopage_congestion || []);
+        }
+
+        function renderRouteAnalytics(data) {
+            // Route-specific analytics rendering
+            if (data.daily_performance) {
+                const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.daily_performance.map(d => d.date),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.daily_performance.map(d => d.revenue),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }, {
+                            label: 'Trips',
+                            data: data.daily_performance.map(d => d.trips),
+                            borderColor: '#764ba2',
+                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                            yAxisID: 'y1',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: true,
+                                grid: {
+                                    drawOnChartArea: false,
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Route stoppage congestion chart
+            if (data.stopage_congestion) {
+                const ctx = document.getElementById('routeChart').getContext('2d');
+                destroyChart('route');
+                
+                charts.route = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.stopage_congestion.map(s => s.stopage_name),
+                        datasets: [{
+                            label: 'Boarding',
+                            data: data.stopage_congestion.map(s => s.boarding_count),
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                        }, {
+                            label: 'Alighting',
+                            data: data.stopage_congestion.map(s => s.alighting_count),
+                            backgroundColor: 'rgba(118, 75, 162, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Passenger Traffic by Stopage'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hide unused charts for route view
+            destroyChart('hourly');
+            destroyChart('bus');
+        }
+
+        function renderBusAnalytics(data) {
+            // Bus-specific analytics rendering
+            if (data.route_performance) {
+                const ctx = document.getElementById('routeChart').getContext('2d');
+                destroyChart('route');
+                
+                charts.route = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.route_performance.map(r => r.route_id),
+                        datasets: [{
+                            data: data.route_performance.map(r => r.revenue),
+                            backgroundColor: [
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Revenue by Route'
+                            },
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (data.daily_performance) {
+                const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.daily_performance.map(d => d.date),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.daily_performance.map(d => d.revenue),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Daily Performance Trend'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hide unused charts
+            destroyChart('hourly');
+            destroyChart('bus');
+        }
+
+        function renderDailyAnalytics(data) {
+            // Daily breakdown analytics
+            if (data.daily_breakdown) {
+                const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.daily_breakdown.map(d => d.date),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.daily_breakdown.map(d => d.revenue),
+                            backgroundColor: data.daily_breakdown.map(d => 
+                                d.is_weekend ? 'rgba(245, 87, 108, 0.8)' : 'rgba(102, 126, 234, 0.8)'
+                            )
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Daily Revenue Breakdown'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Trips vs Tickets comparison
+                const ctx2 = document.getElementById('routeChart').getContext('2d');
+                destroyChart('route');
+                
+                charts.route = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: data.daily_breakdown.map(d => d.day_name),
+                        datasets: [{
+                            label: 'Trips',
+                            data: data.daily_breakdown.map(d => d.trips),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }, {
+                            label: 'Tickets',
+                            data: data.daily_breakdown.map(d => d.tickets),
+                            borderColor: '#764ba2',
+                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Trips vs Tickets by Day'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hide unused charts
+            destroyChart('hourly');
+            destroyChart('bus');
+        }
+
+        function renderHourlyAnalytics(data) {
+            // Hourly breakdown analytics
+            if (data.hourly_breakdown) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                charts.hourly = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.hourly_breakdown.map(d => d.hour_label),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.hourly_breakdown.map(d => d.tickets),
+                            backgroundColor: data.hourly_breakdown.map(d => {
+                                const hour = d.hour;
+                                if ((hour >= 7 && hour <= 10) || (hour >= 17 && hour <= 20)) {
+                                    return 'rgba(245, 87, 108, 0.8)'; // Peak hours - red
+                                } else if (hour >= 12 && hour <= 14) {
+                                    return 'rgba(240, 147, 251, 0.8)'; // Lunch time - pink
+                                } else {
+                                    return 'rgba(102, 126, 234, 0.8)'; // Normal hours - blue
+                                }
+                            })
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Hourly Ticket Distribution'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Revenue by hour
+                const ctx2 = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: data.hourly_breakdown.map(d => d.hour_label),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.hourly_breakdown.map(d => d.revenue),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Hourly Revenue Distribution'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hide unused charts
+            destroyChart('route');
+            destroyChart('bus');
+        }
+
+        function populateRoutesTable(routes) {
+            const tbody = document.querySelector('#routesTable tbody');
+            tbody.innerHTML = routes.map(route => `
+                <tr>
+                    <td><span class="badge bg-primary">${route.route_id}</span></td>
+                    <td>${route.start} → ${route.end}</td>
+                    <td>${route.trips}</td>
+                    <td>${route.tickets}</td>
+                    <td>৳${route.revenue.toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function populateBusesTable(buses) {
+            const tbody = document.querySelector('#busesTable tbody');
+            tbody.innerHTML = buses
+                .sort((a, b) => b.revenue - a.revenue)
+                .map(bus => `
+                    <tr>
+                        <td><span class="badge bg-secondary">${bus.bus_id}</span></td>
+                        <td>${bus.trips}</td>
+                        <td>${bus.tickets}</td>
+                        <td>৳${bus.revenue.toLocaleString()}</td>
+                    </tr>
+                `).join('');
+        }
+
+        function populateDailyTable(daily) {
+            const tbody = document.querySelector('#dailyTable tbody');
+            tbody.innerHTML = daily.map(day => `
+                <tr>
+                    <td>${day.date}</td>
+                    <td>${day.day_name || new Date(day.date).toLocaleDateString('en', { weekday: 'short' })}</td>
+                    <td>${day.trips || 0}</td>
+                    <td>${day.tickets || 0}</td>
+                    <td>৳${(day.revenue || 0).toLocaleString()}</td>
+                    <td>৳${(day.avg_ticket_price || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function populateStopageTable(stopages) {
+            const tbody = document.querySelector('#stopageTable tbody');
+            tbody.innerHTML = stopages.map(stopage => {
+                const totalTraffic = stopage.boarding_count + stopage.alighting_count;
+                let congestionLevel = 'Low';
+                let congestionClass = 'bg-success';
+                
+                if (totalTraffic > 50) {
+                    congestionLevel = 'High';
+                    congestionClass = 'bg-danger';
+                } else if (totalTraffic > 20) {
+                    congestionLevel = 'Medium';
+                    congestionClass = 'bg-warning';
+                }
+                
+                return `
+                    <tr>
+                        <td><strong>${stopage.stopage_name}</strong></td>
+                        <td><span class="badge bg-info">${stopage.position || 'N/A'}</span></td>
+                        <td><span class="badge bg-primary">${stopage.boarding_count}</span></td>
+                        <td><span class="badge bg-secondary">${stopage.alighting_count}</span></td>
+                        <td><strong>${totalTraffic}</strong></td>
+                        <td>৳${(stopage.revenue || 0).toLocaleString()}</td>
+                        <td><span class="badge ${congestionClass}">${congestionLevel}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderStopageChart(stopageData) {
+            if (!stopageData || stopageData.length === 0) return;
+            
+            const ctx = document.getElementById('stopageChart').getContext('2d');
+            destroyChart('stopage');
+            
+            charts.stopage = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: stopageData.map(s => s.stopage_name),
+                    datasets: [{
+                        label: 'Boarding',
+                        data: stopageData.map(s => s.boarding_count),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Alighting',
+                        data: stopageData.map(s => s.alighting_count),
+                        backgroundColor: 'rgba(245, 87, 108, 0.8)',
+                        borderColor: 'rgba(245, 87, 108, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Passenger Traffic by Stopage Position'
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Stopage Names'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Passengers'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        function destroyChart(chartName) {
+            if (charts[chartName]) {
+                charts[chartName].destroy();
+            }
+        }
+    </script>
+</body>
+</html>

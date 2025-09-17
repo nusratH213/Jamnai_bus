@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "app",
-    "channels",
 ]
 
 MIDDLEWARE = [
@@ -49,13 +48,14 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-ASGI_APPLICATION = 'yourproject.asgi.application'
+# Comment out ASGI for now - using standard WSGI
+# ASGI_APPLICATION = 'Jamnai.asgi.application'
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels.layers.InMemoryChannelLayer"
+#     }
+# }
 
 ROOT_URLCONF = "Jamnai.urls"
 
