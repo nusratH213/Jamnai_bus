@@ -20,6 +20,7 @@ urlpatterns = [
     path('getstop/', getstop, name='getstop'),
     path('updatestop/', updatestop, name='updatestop'),
     path('gets/', views.gets, name='gets'),
+    path('cap/', views.cap, name='cap'),
     # path("api/get-buses/", get_buses),
     # path("api/setbus/", setbus),
 ]

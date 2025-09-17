@@ -2,12 +2,18 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+
+def cap(request):
+    return render(request, "app/cap.html")
+
 def hello_view(request):
     return render(request, "app/user_dashboard.html")
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
+
+
 def user_login(request):
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
@@ -110,6 +116,7 @@ from django.views.decorators.http import require_POST
 from django.http import HttpResponse
 from django.utils import timezone
 import json
+from app.models import Trip, Card, Ticket, Schedule
 
 @csrf_exempt
 @require_POST
@@ -144,7 +151,7 @@ def f(request):
 
     today = timezone.localdate()
     try:
-        trip = Trip.objects.get(bus=bus_id, date=today, is_ended=False)
+        trip = Trip.objects.get(bus=bus_id, is_ended=False)
     except Trip.DoesNotExist:
         return HttpResponse(
             json.dumps({"error": "No active trip for this bus today"}),
@@ -267,8 +274,9 @@ def g(request):
             data[mp[rid]] = 0
             continue
 
-        # Get latest ImgNow for this road and stopage
+        # Get latest ImgNow for this road and stopage 
         latest = ImgNow.objects.filter(road=road, stopage=stopage).order_by('-time').first()
+        print(f"Road: {rid} {mp[rid]} {latest}")
         data[mp[rid]] =latest.value if latest else 0  # Get the value or None if no record found
 
     return JsonResponse({
