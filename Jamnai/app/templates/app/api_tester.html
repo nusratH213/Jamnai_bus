@@ -1,0 +1,869 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Testing Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .endpoints-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .endpoint-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 15px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .endpoint-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            border-color: #4f46e5;
+        }
+
+        .endpoint-card.active {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(79, 70, 229, 0.3);
+        }
+
+        .endpoint-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .endpoint-method {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .method-GET {
+            background: #10b981;
+            color: white;
+        }
+
+        .method-POST {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .endpoint-url {
+            font-family: monospace;
+            background: rgba(0,0,0,0.1);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .form-container {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .form-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+
+        .method-badge {
+            display: inline-block;
+            padding: 6px 15px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .method-badge.GET {
+            background: #10b981;
+            color: white;
+        }
+
+        .method-badge.POST {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .form-fields {
+            margin-bottom: 20px;
+        }
+
+        .field-group {
+            margin-bottom: 20px;
+        }
+
+        .field-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .field-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .field-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.3);
+        }
+
+        .response-container {
+            margin-top: 30px;
+            padding: 25px;
+            background: #1e293b;
+            border-radius: 15px;
+            color: white;
+            font-family: monospace;
+            display: none;
+        }
+
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #475569;
+        }
+
+        .response-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .status-200 {
+            background: #10b981;
+        }
+
+        .status-400, .status-500 {
+            background: #ef4444;
+        }
+
+        .response-content {
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .history-container {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-radius: 15px;
+        }
+
+        .history-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+
+        .history-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .history-meta {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+
+        .history-url {
+            font-family: monospace;
+            font-weight: 600;
+        }
+
+        .clear-history {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Pass Django data to JavaScript -->
+    <script type="application/json" id="django-data">
+        {
+            "stopages": [{% for stopage in stopages %}{"id": "{{ stopage.id }}", "name": "{{ stopage.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            "buses": [{% for bus in buses %}{"id": "{{ bus.id|escapejs }}", "username": "{{ bus.id|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            "owners": [{% for owner in owners %}{"id": "{{ owner.id|escapejs }}", "username": "{{ owner.id|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            "cards": [{% for card in cards %}{"card_id": "{{ card.card_id|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            "roads": [{% for road in roads %}{"id": "{{ road.id }}", "name": "{{ road.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}],
+            "routes": [{% for route in routes %}{"route_id": "{{ route.route_id|escapejs }}", "start_stopage": "{{ route.start_stopage.name|escapejs }}", "end_stopage": "{{ route.end_stopage.name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+        }
+    </script>
+
+    <div class="container">
+        <div class="header">
+            <h1>🔧 API Testing Dashboard</h1>
+            <p>Comprehensive testing interface for all API endpoints</p>
+        </div>
+
+        <div class="main-content">
+            <div class="endpoints-grid">
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('search_routes')">
+                    <div class="endpoint-title">🔍 Route Search</div>
+                    <span class="endpoint-method method-POST">POST</span>
+                    <div class="endpoint-url">/search/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('journey_tracking')">
+                    <div class="endpoint-title">🎫 Journey Tracking</div>
+                    <span class="endpoint-method method-POST">POST</span>
+                    <div class="endpoint-url">/fo/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('traffic_data')">
+                    <div class="endpoint-title">📊 Traffic Data</div>
+                    <span class="endpoint-method method-GET">GET</span>
+                    <div class="endpoint-url">/g/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('set_traffic')">
+                    <div class="endpoint-title">📈 Set Traffic</div>
+                    <span class="endpoint-method method-POST">POST</span>
+                    <div class="endpoint-url">/setg/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('get_buses')">
+                    <div class="endpoint-title">🚌 Get Buses</div>
+                    <span class="endpoint-method method-GET">GET</span>
+                    <div class="endpoint-url">/getbus/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('set_bus')">
+                    <div class="endpoint-title">🚍 Set Bus</div>
+                    <span class="endpoint-method method-POST">POST</span>
+                    <div class="endpoint-url">/setbus/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('get_stop')">
+                    <div class="endpoint-title">🛑 Get Next Stop</div>
+                    <span class="endpoint-method method-GET">GET</span>
+                    <div class="endpoint-url">/getstop/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('update_stop')">
+                    <div class="endpoint-title">🚏 Update Stop</div>
+                    <span class="endpoint-method method-POST">POST</span>
+                    <div class="endpoint-url">/updatestop/</div>
+                </div>
+
+                <div class="endpoint-card" onclick="apiTester.loadEndpointForm('get_stopages')">
+                    <div class="endpoint-title">📍 Get Stopages</div>
+                    <span class="endpoint-method method-GET">GET</span>
+                    <div class="endpoint-url">/gets/</div>
+                </div>
+            </div>
+
+            <div id="api-form-container" class="form-container">
+                <h3 id="form-title" class="form-title">Select an endpoint</h3>
+                <span id="method-badge" class="method-badge"></span>
+                
+                <form id="api-form">
+                    {% csrf_token %}
+                    <div id="form-fields" class="form-fields"></div>
+                    <button type="submit" class="submit-btn">🚀 Send Request</button>
+                </form>
+            </div>
+
+            <div id="response-container" class="response-container">
+                <div class="response-header">
+                    <h4>Response</h4>
+                    <span id="response-status" class="response-status"></span>
+                </div>
+                <div id="response-content" class="response-content"></div>
+            </div>
+
+            <div class="history-container">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 class="history-title">📋 Request History</h3>
+                    <button class="clear-history" onclick="apiTester.clearHistory()">Clear History</button>
+                </div>
+                <div id="history-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class APITester {
+            constructor() {
+                this.currentEndpoint = null;
+                this.requestHistory = JSON.parse(localStorage.getItem('apiTestHistory') || '[]');
+                this.djangoData = JSON.parse(document.getElementById('django-data').textContent);
+                this.init();
+            }
+
+            init() {
+                this.updateHistory();
+                this.setupForm();
+            }
+
+            setupForm() {
+                document.getElementById('api-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendRequest();
+                });
+            }
+
+            loadEndpointForm(endpoint) {
+                this.currentEndpoint = endpoint;
+                const container = document.getElementById('api-form-container');
+                const formFields = document.getElementById('form-fields');
+                const formTitle = document.getElementById('form-title');
+                const methodBadge = document.getElementById('method-badge');
+
+                container.style.display = 'block';
+
+                // Remove active class from all cards
+                document.querySelectorAll('.endpoint-card').forEach(card => {
+                    card.classList.remove('active');
+                });
+
+                // Add active class to clicked card
+                event.target.closest('.endpoint-card').classList.add('active');
+
+                // Get data from Django
+                const stopageOptions = this.djangoData.stopages.map(s => s.name);
+                const busOptions = this.djangoData.buses;
+                const ownerOptions = this.djangoData.owners;
+                const cardOptions = this.djangoData.cards.map(c => c.card_id);
+                const roadOptions = this.djangoData.roads;
+                const stopageWithIdOptions = this.djangoData.stopages;
+                const routeOptions = this.djangoData.routes;
+
+                const endpointConfigs = {
+                    search_routes: {
+                        title: '🔍 Test Route Search',
+                        method: 'POST',
+                        url: '/search/',
+                        fields: [
+                            {
+                                name: 'source',
+                                label: 'Source Location',
+                                type: 'select',
+                                options: stopageOptions,
+                                required: true
+                            },
+                            {
+                                name: 'destination', 
+                                label: 'Destination Location',
+                                type: 'select',
+                                options: stopageOptions,
+                                required: true
+                            }
+                        ]
+                    },
+                    journey_tracking: {
+                        title: '🎫 Test Journey Tracking',
+                        method: 'POST',
+                        url: '/fo/',
+                        fields: [
+                            {
+                                name: 'busid',
+                                label: 'Bus ID',
+                                type: 'select',
+                                options: busOptions.map(b => b.id),
+                                required: true
+                            },
+                            {
+                                name: 'on',
+                                label: 'Journey Action',
+                                type: 'select',
+                                options: [
+                                    { value: 1, text: 'Start Journey (1)' },
+                                    { value: 0, text: 'End Journey (0)' }
+                                ],
+                                required: true
+                            },
+                            {
+                                name: 'card_id',
+                                label: 'Card ID',
+                                type: 'select',
+                                options: cardOptions,
+                                required: true
+                            }
+                        ]
+                    },
+                    traffic_data: {
+                        title: '📊 Test Traffic Data',
+                        method: 'GET',
+                        url: '/g/',
+                        fields: [
+                            {
+                                name: 'roadid[]',
+                                label: 'Road IDs (Multiple)',
+                                type: 'checkbox',
+                                options: roadOptions,
+                                required: true
+                            },
+                            {
+                                name: 'stopageid',
+                                label: 'Stopage ID',
+                                type: 'select',
+                                options: stopageWithIdOptions,
+                                required: true
+                            }
+                        ]
+                    },
+                    set_traffic: {
+                        title: '📈 Test Set Traffic',
+                        method: 'POST',
+                        url: '/setg/',
+                        fields: [
+                            {
+                                name: 'stopageid',
+                                label: 'Stopage ID',
+                                type: 'select',
+                                options: stopageWithIdOptions,
+                                required: true
+                            },
+                            {
+                                name: 'roadid',
+                                label: 'Road ID',
+                                type: 'select',
+                                options: roadOptions,
+                                required: true
+                            },
+                            {
+                                name: 'val',
+                                label: 'Traffic Value',
+                                type: 'number',
+                                placeholder: 'Enter traffic value (0-100)',
+                                required: true
+                            }
+                        ]
+                    },
+                    get_buses: {
+                        title: '🚌 Test Get Buses',
+                        method: 'GET',
+                        url: '/getbus/',
+                        fields: [
+                            {
+                                name: 'owner_id',
+                                label: 'Owner ID',
+                                type: 'select',
+                                options: ownerOptions,
+                                required: true
+                            }
+                        ]
+                    },
+                    set_bus: {
+                        title: '🚍 Test Set Bus',
+                        method: 'POST',
+                        url: '/setbus/',
+                        fields: [
+                            {
+                                name: 'bus_id',
+                                label: 'Bus ID',
+                                type: 'select',
+                                options: busOptions,
+                                required: true
+                            },
+                            {
+                                name: 'route_id',
+                                label: 'Route ID',
+                                type: 'select',
+                                options: routeOptions,
+                                required: true
+                            },
+                            {
+                                name: 'owner_id',
+                                label: 'Owner ID',
+                                type: 'select',
+                                options: ownerOptions,
+                                required: true
+                            }
+                        ]
+                    },
+                    get_stop: {
+                        title: '🛑 Test Get Next Stop',
+                        method: 'GET',
+                        url: '/getstop/',
+                        fields: [
+                            {
+                                name: 'info',
+                                label: 'Info',
+                                type: 'text',
+                                value: 'Requires authentication (bus user login)',
+                                readonly: true
+                            }
+                        ]
+                    },
+                    update_stop: {
+                        title: '🚏 Test Update Stop',
+                        method: 'POST',
+                        url: '/updatestop/',
+                        fields: [
+                            {
+                                name: 'bus_id',
+                                label: 'Bus ID',
+                                type: 'select',
+                                options: busOptions,
+                                required: true
+                            },
+                            {
+                                name: 'stopage_id',
+                                label: 'Stopage Name',
+                                type: 'select',
+                                options: stopageOptions,
+                                required: true
+                            },
+                            {
+                                name: 'arrive',
+                                label: 'Action',
+                                type: 'select',
+                                options: [
+                                    { value: '1', text: 'Arrival (1)' },
+                                    { value: '0', text: 'Departure (0)' }
+                                ],
+                                required: true
+                            }
+                        ]
+                    },
+                    get_stopages: {
+                        title: '📍 Test Get Stopages',
+                        method: 'GET',
+                        url: '/gets/',
+                        fields: [
+                            {
+                                name: 'info',
+                                label: 'Info',
+                                type: 'text',
+                                value: 'No parameters required - returns all stopages',
+                                readonly: true
+                            }
+                        ]
+                    }
+                };
+
+                const config = endpointConfigs[endpoint];
+                if (!config) return;
+
+                formTitle.textContent = config.title;
+                methodBadge.textContent = config.method;
+                methodBadge.className = `method-badge ${config.method}`;
+
+                formFields.innerHTML = this.generateFormFields(config.fields);
+            }
+
+            generateFormFields(fields) {
+                return fields.map(field => {
+                    switch (field.type) {
+                        case 'select':
+                            let options = '';
+                            if (Array.isArray(field.options)) {
+                                if (typeof field.options[0] === 'string') {
+                                    options = field.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+                                } else if (typeof field.options[0] === 'object') {
+                                    if (field.options[0].hasOwnProperty('value') && field.options[0].hasOwnProperty('text')) {
+                                        options = field.options.map(opt => `<option value="${opt.value}">${opt.text}</option>`).join('');
+                                    } else if (field.options[0].hasOwnProperty('id') && field.options[0].hasOwnProperty('name')) {
+                                        options = field.options.map(opt => `<option value="${opt.id}">${opt.name} (ID: ${opt.id})</option>`).join('');
+                                    } else if (field.options[0].hasOwnProperty('id') && field.options[0].hasOwnProperty('username')) {
+                                        options = field.options.map(opt => `<option value="${opt.id}">ID: ${opt.id} (${opt.username})</option>`).join('');
+                                    } else if (field.options[0].hasOwnProperty('route_id')) {
+                                        options = field.options.map(opt => `<option value="${opt.route_id}">${opt.route_id} (${opt.start_stopage} → ${opt.end_stopage})</option>`).join('');
+                                    }
+                                }
+                            }
+                            return `
+                                <div class="field-group">
+                                    <label class="field-label">${field.label}</label>
+                                    <select name="${field.name}" class="field-input" ${field.required ? 'required' : ''}>
+                                        <option value="">Select ${field.label}</option>
+                                        ${options}
+                                    </select>
+                                </div>
+                            `;
+
+                        case 'checkbox':
+                            const checkboxes = field.options.map(opt => {
+                                const value = typeof opt === 'object' ? opt.id : opt;
+                                const text = typeof opt === 'object' ? `${opt.name} (ID: ${opt.id})` : opt;
+                                return `
+                                    <div class="checkbox-item">
+                                        <input type="checkbox" name="${field.name}" value="${value}" id="${field.name}_${value}">
+                                        <label for="${field.name}_${value}">${text}</label>
+                                    </div>
+                                `;
+                            }).join('');
+                            return `
+                                <div class="field-group">
+                                    <label class="field-label">${field.label}</label>
+                                    <div class="checkbox-group">
+                                        ${checkboxes}
+                                    </div>
+                                </div>
+                            `;
+
+                        case 'text':
+                        case 'number':
+                            return `
+                                <div class="field-group">
+                                    <label class="field-label">${field.label}</label>
+                                    <input 
+                                        type="${field.type}" 
+                                        name="${field.name}" 
+                                        class="field-input"
+                                        placeholder="${field.placeholder || ''}"
+                                        value="${field.value || ''}"
+                                        ${field.required ? 'required' : ''}
+                                        ${field.readonly ? 'readonly' : ''}
+                                    >
+                                </div>
+                            `;
+
+                        default:
+                            return '';
+                    }
+                }).join('');
+            }
+
+            async sendRequest() {
+                if (!this.currentEndpoint) return;
+
+                const form = document.getElementById('api-form');
+                const formData = new FormData(form);
+                const responseContainer = document.getElementById('response-container');
+                const responseStatus = document.getElementById('response-status');
+                const responseContent = document.getElementById('response-content');
+
+                const endpointConfigs = {
+                    search_routes: { method: 'POST', url: '/search/' },
+                    journey_tracking: { method: 'POST', url: '/fo/' },
+                    traffic_data: { method: 'GET', url: '/g/' },
+                    set_traffic: { method: 'POST', url: '/setg/' },
+                    get_buses: { method: 'GET', url: '/getbus/' },
+                    set_bus: { method: 'POST', url: '/setbus/' },
+                    get_stop: { method: 'GET', url: '/getstop/' },
+                    update_stop: { method: 'POST', url: '/updatestop/' },
+                    get_stopages: { method: 'GET', url: '/gets/' }
+                };
+
+                const config = endpointConfigs[this.currentEndpoint];
+                let requestData = {};
+
+                // Convert FormData to object
+                for (let [key, value] of formData.entries()) {
+                    if (requestData[key]) {
+                        if (Array.isArray(requestData[key])) {
+                            requestData[key].push(value);
+                        } else {
+                            requestData[key] = [requestData[key], value];
+                        }
+                    } else {
+                        requestData[key] = value;
+                    }
+                }
+
+                try {
+                    responseContent.textContent = 'Sending request...';
+                    responseContainer.style.display = 'block';
+
+                    let response;
+                    if (config.method === 'GET') {
+                        const params = new URLSearchParams(requestData);
+                        response = await fetch(`${config.url}?${params}`);
+                    } else {
+                        // Special handling for /fo/ endpoint - it expects JSON
+                        if (config.url === '/fo/') {
+                            response = await fetch(config.url, {
+                                method: config.method,
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                                },
+                                body: JSON.stringify(requestData)
+                            });
+                        } else {
+                            // Default form-encoded data for other endpoints
+                            response = await fetch(config.url, {
+                                method: config.method,
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                                },
+                                body: new URLSearchParams(requestData)
+                            });
+                        }
+                    }
+
+                    const responseText = await response.text();
+                    
+                    responseStatus.textContent = `${response.status} ${response.statusText}`;
+                    responseStatus.className = `response-status status-${Math.floor(response.status / 100) * 100}`;
+                    
+                    try {
+                        const jsonData = JSON.parse(responseText);
+                        responseContent.textContent = JSON.stringify(jsonData, null, 2);
+                    } catch {
+                        responseContent.textContent = responseText;
+                    }
+
+                    // Add to history
+                    this.addToHistory({
+                        endpoint: this.currentEndpoint,
+                        method: config.method,
+                        url: config.url,
+                        data: requestData,
+                        status: response.status,
+                        timestamp: new Date().toISOString()
+                    });
+
+                } catch (error) {
+                    responseStatus.textContent = 'Error';
+                    responseStatus.className = 'response-status status-500';
+                    responseContent.textContent = `Error: ${error.message}`;
+                }
+            }
+
+            addToHistory(request) {
+                this.requestHistory.unshift(request);
+                this.requestHistory = this.requestHistory.slice(0, 20); // Keep last 20 requests
+                localStorage.setItem('apiTestHistory', JSON.stringify(this.requestHistory));
+                this.updateHistory();
+            }
+
+            updateHistory() {
+                const historyList = document.getElementById('history-list');
+                if (this.requestHistory.length === 0) {
+                    historyList.innerHTML = '<p style="color: #64748b; text-align: center; padding: 20px;">No requests yet</p>';
+                    return;
+                }
+
+                historyList.innerHTML = this.requestHistory.map(req => `
+                    <div class="history-item">
+                        <div class="history-meta">
+                            ${new Date(req.timestamp).toLocaleString()} | 
+                            <span class="endpoint-method method-${req.method}">${req.method}</span> | 
+                            Status: ${req.status}
+                        </div>
+                        <div class="history-url">${req.url}</div>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">
+                            ${JSON.stringify(req.data)}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            clearHistory() {
+                this.requestHistory = [];
+                localStorage.removeItem('apiTestHistory');
+                this.updateHistory();
+            }
+        }
+
+        // Initialize the API tester
+        const apiTester = new APITester();
+    </script>
+</body>
+</html>

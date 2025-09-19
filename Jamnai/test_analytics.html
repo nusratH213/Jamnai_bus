@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analytics Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Analytics API Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Filter Options</h3>
+        <button onclick="testFilterOptions()">Load Filter Options</button>
+        <pre id="filterResult">Click button to test...</pre>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Test Total Analytics</h3>
+        <button onclick="testTotalAnalytics()">Load Total Analytics</button>
+        <pre id="totalResult">Click button to test...</pre>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Test Route Analytics</h3>
+        <button onclick="testRouteAnalytics()">Load Route Analytics (R1)</button>
+        <pre id="routeResult">Click button to test...</pre>
+    </div>
+    
+    <div class="test-section">
+        <h3>4. Test Bus Analytics</h3>
+        <button onclick="testBusAnalytics()">Load Bus Analytics (bus001)</button>
+        <pre id="busResult">Click button to test...</pre>
+    </div>
+
+    <script>
+        async function testFilterOptions() {
+            try {
+                const response = await fetch('/analytics/filters/');
+                const data = await response.json();
+                document.getElementById('filterResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('filterResult').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testTotalAnalytics() {
+            try {
+                const response = await fetch('/analytics/api/?filter=total&period=all');
+                const data = await response.json();
+                document.getElementById('totalResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('totalResult').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testRouteAnalytics() {
+            try {
+                const response = await fetch('/analytics/api/?filter=route&value=R1&period=all');
+                const data = await response.json();
+                document.getElementById('routeResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('routeResult').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testBusAnalytics() {
+            try {
+                const response = await fetch('/analytics/api/?filter=bus&value=bus001&period=all');
+                const data = await response.json();
+                document.getElementById('busResult').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('busResult').textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

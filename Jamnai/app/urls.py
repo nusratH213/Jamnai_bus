@@ -30,6 +30,9 @@ urlpatterns = [
     path('analytics/filters/', get_filter_options, name='analytics_filters'),
     path('analytics/traffic/', traffic_analytics, name='traffic_analytics'),
     
+    # API Testing Dashboard
+    path('api-tester/', views.api_tester, name='api_tester'),
+    
     # path("api/get-buses/", get_buses),
     # path("api/setbus/", setbus),
 ]

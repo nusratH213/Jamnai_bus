@@ -1,79 +1,122 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bus System Analytics Dashboard</title>
+{% extends 'app/head.html' %}
+{% block title %}Analytics Dashboard{% endblock %}
+{% block navbar_heading %}
+    📊 Analytics Dashboard
+{% endblock %}
+{% block content %}
+
+<!-- Bootstrap CSS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/date-fns@1.30.1/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<!-- Custom CSS -->
+<style>
+       body {
+        background-color: rgb(255, 243, 205);
+    }
+    .container {
+        background: var(--white);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-medium);
+        padding: 30px;
+        margin-top: 20px;
+    }
     
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@1.30.1/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    
-    <!-- Custom CSS -->
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .card {
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            border: 1px solid rgba(0, 0, 0, 0.125);
-        }
-        .metric-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .metric-card .card-body {
-            padding: 1.5rem;
-        }
-        .metric-value {
-            font-size: 2rem;
-            font-weight: bold;
-        }
-        .metric-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        .chart-container {
-            position: relative;
-            height: 400px;
-            margin: 1rem 0;
-        }
-        .filter-section {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 0.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        }
-        .loading {
-            text-align: center;
-            padding: 2rem;
-        }
-        .spinner-border {
-            color: #667eea;
-        }
-        .nav-pills .nav-link.active {
-            background-color: #667eea;
-        }
-        .table-responsive {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid py-4">
-        <!-- Header -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <h1 class="display-4 text-center text-primary">🚌 JamNai Analytics</h1>
-                <p class="text-center text-muted">Comprehensive analytics and performance insights</p>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .metric-card .card-body {
+        padding: 1.5rem;
+    }
+    .metric-value {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .chart-container {
+        position: relative;
+        height: 400px;
+        margin: 1rem 0;
+    }
+    .filter-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .loading {
+        text-align: center;
+        padding: 2rem;
+    }
+    .spinner-border {
+        color: #667eea;
+    }
+    .nav-pills .nav-link.active {
+        background-color: #667eea;
+    }
+    .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .route-visualization {
+        padding: 20px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
+        margin: 10px 0;
+    }
+    .route-line {
+        min-height: 80px;
+        padding: 20px 0;
+    }
+    .stopage-point {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .stopage-indicator {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .stopage-indicator:hover {
+        transform: scale(1.1);
+    }
+    .route-connector {
+        border-radius: 2px;
+    }
+    .stopage-name {
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+    }
+    .stopage-stats {
+        font-size: 0.8rem;
+    }
+</style>
+
+<div class="container">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="text-center mb-20">
+                <h1 id="analyticsTitle">� JamNai Analytics</h1>
+                <p style="font-size: 18px; color: var(--medium-gray); margin-bottom: 30px;">
+                    Comprehensive analytics and performance insights
+                </p>
             </div>
         </div>
+    </div>
 
         <!-- Filter Section -->
         <div class="filter-section">
@@ -122,6 +165,22 @@
 
         <!-- Analytics Content -->
         <div id="analyticsContent" style="display: none;">
+            <!-- Route Visual Representation (only shown for route filter) -->
+            <div id="routeVisual" class="row mb-4" style="display: none;">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">🗺️ Route Map</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="routeVisualization" class="text-center">
+                                <!-- Route visualization will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Summary Cards -->
             <div id="summaryCards" class="row mb-4">
                 <!-- Dynamic cards will be inserted here -->
@@ -357,6 +416,12 @@
             const filterValue = document.getElementById('filterValue').value;
             const timePeriod = document.getElementById('timePeriod').value;
             
+            // Validate that a specific value is selected for route/bus filters
+            if ((filterType === 'route' || filterType === 'bus') && !filterValue) {
+                alert(`Please select a specific ${filterType} to analyze.`);
+                return;
+            }
+            
             // Show loading
             document.getElementById('loadingIndicator').style.display = 'block';
             document.getElementById('analyticsContent').style.display = 'none';
@@ -379,6 +444,9 @@
                 // Render analytics
                 renderAnalytics(data, filterType);
                 
+                // Update page title based on filter
+                updatePageTitle(filterType, filterValue, data);
+                
             } catch (error) {
                 console.error('Error loading analytics:', error);
                 alert('Error loading analytics data');
@@ -389,9 +457,35 @@
             }
         }
 
+        function updatePageTitle(filterType, filterValue, data) {
+            const titleElement = document.getElementById('analyticsTitle');
+            let newTitle = '� JamNai Analytics';
+            
+            if (filterType === 'route' && data.route_info) {
+                newTitle = `� Route ${data.route_info.route_id} Analytics`;
+            } else if (filterType === 'bus' && data.bus_info) {
+                newTitle = `� Bus ${data.bus_info.bus_id} Analytics`;
+            } else if (filterType === 'daily') {
+                newTitle = '� Daily Analytics Overview';
+            } else if (filterType === 'hourly') {
+                newTitle = '� Hourly Analytics Overview';
+            }
+            
+            titleElement.textContent = newTitle;
+        }
+
         function renderAnalytics(data, filterType) {
             // Render summary cards
             renderSummaryCards(data.summary || {});
+            
+            // Show/hide route visual based on filter type
+            const routeVisual = document.getElementById('routeVisual');
+            if (filterType === 'route' && data.route_info) {
+                routeVisual.style.display = 'block';
+                renderRouteVisualization(data.route_info, data.stopage_congestion || []);
+            } else {
+                routeVisual.style.display = 'none';
+            }
             
             // Render charts based on filter type
             if (filterType === 'total') {
@@ -409,13 +503,32 @@
 
         function renderSummaryCards(summary) {
             const container = document.getElementById('summaryCards');
+            const filterType = document.getElementById('filterType').value;
             
-            const cards = [
-                { label: 'Total Trips', value: summary.total_trips || 0, icon: '🚌' },
-                { label: 'Total Revenue', value: `৳${(summary.total_revenue || 0).toLocaleString()}`, icon: '💰' },
-                { label: 'Total Tickets', value: summary.total_tickets || 0, icon: '🎫' },
-                { label: 'Avg Ticket Price', value: `৳${(summary.avg_ticket_price || 0).toFixed(2)}`, icon: '📊' }
-            ];
+            let cards = [];
+            
+            if (filterType === 'route') {
+                cards = [
+                    { label: 'Route Trips', value: summary.total_trips || 0, icon: '🚌' },
+                    { label: 'Route Revenue', value: `৳${(summary.total_revenue || 0).toLocaleString()}`, icon: '💰' },
+                    { label: 'Route Tickets', value: summary.total_tickets || 0, icon: '🎫' },
+                    { label: 'Avg Ticket Price', value: `৳${(summary.avg_ticket_price || 0).toFixed(2)}`, icon: '📊' }
+                ];
+            } else if (filterType === 'bus') {
+                cards = [
+                    { label: 'Bus Trips', value: summary.total_trips || 0, icon: '🚌' },
+                    { label: 'Bus Revenue', value: `৳${(summary.total_revenue || 0).toLocaleString()}`, icon: '💰' },
+                    { label: 'Bus Tickets', value: summary.total_tickets || 0, icon: '🎫' },
+                    { label: 'Routes Served', value: summary.routes_served || 0, icon: '🗺️' }
+                ];
+            } else {
+                cards = [
+                    { label: 'Total Trips', value: summary.total_trips || 0, icon: '🚌' },
+                    { label: 'Total Revenue', value: `৳${(summary.total_revenue || 0).toLocaleString()}`, icon: '💰' },
+                    { label: 'Total Tickets', value: summary.total_tickets || 0, icon: '🎫' },
+                    { label: 'Avg Ticket Price', value: `৳${(summary.avg_ticket_price || 0).toFixed(2)}`, icon: '📊' }
+                ];
+            }
             
             container.innerHTML = cards.map(card => `
                 <div class="col-lg-3 col-md-6 mb-3">
@@ -571,25 +684,141 @@
             renderStopageChart(data.stopage_congestion || []);
         }
 
+        function renderRouteVisualization(routeInfo, stopageData) {
+            const container = document.getElementById('routeVisualization');
+            
+            // Create visual route representation
+            let routeHtml = `
+                <div class="route-visualization">
+                    <h6 class="mb-3">${routeInfo.name}</h6>
+                    <div class="route-line d-flex align-items-center justify-content-between position-relative">
+            `;
+            
+            if (stopageData && stopageData.length > 0) {
+                // Sort by position if available
+                const sortedStopages = stopageData.sort((a, b) => (a.position || 0) - (b.position || 0));
+                
+                sortedStopages.forEach((stopage, index) => {
+                    const totalTraffic = stopage.boarding_count + stopage.alighting_count;
+                    let congestionColor = '#28a745'; // Green for low congestion
+                    let congestionSize = '30px';
+                    
+                    if (totalTraffic > 50) {
+                        congestionColor = '#dc3545'; // Red for high congestion
+                        congestionSize = '50px';
+                    } else if (totalTraffic > 20) {
+                        congestionColor = '#ffc107'; // Yellow for medium congestion
+                        congestionSize = '40px';
+                    }
+                    
+                    routeHtml += `
+                        <div class="stopage-point text-center" style="flex: 1;">
+                            <div class="stopage-indicator mx-auto mb-2" style="
+                                width: ${congestionSize}; 
+                                height: ${congestionSize}; 
+                                background-color: ${congestionColor}; 
+                                border-radius: 50%; 
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center;
+                                color: white;
+                                font-weight: bold;
+                                border: 3px solid #fff;
+                                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                            ">
+                                ${index + 1}
+                            </div>
+                            <div class="stopage-name">
+                                <strong>${stopage.stopage_name}</strong>
+                            </div>
+                            <div class="stopage-stats mt-1">
+                                <small class="text-muted">
+                                    ↗️ ${stopage.boarding_count} | ↙️ ${stopage.alighting_count}
+                                </small>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add connecting line (except for last stopage)
+                    if (index < sortedStopages.length - 1) {
+                        routeHtml += `
+                            <div class="route-connector" style="
+                                flex: 0 0 40px; 
+                                height: 4px; 
+                                background: linear-gradient(to right, #667eea, #764ba2);
+                                margin: 0 10px;
+                                position: relative;
+                                top: -15px;
+                            "></div>
+                        `;
+                    }
+                });
+            } else {
+                // Simple route without stopage details
+                routeHtml += `
+                    <div class="stopage-point text-center" style="flex: 1;">
+                        <div class="stopage-indicator mx-auto mb-2" style="
+                            width: 40px; height: 40px; background-color: #667eea; 
+                            border-radius: 50%; display: flex; align-items: center; 
+                            justify-content: center; color: white; font-weight: bold;
+                        ">1</div>
+                        <div class="stopage-name"><strong>${routeInfo.start}</strong></div>
+                    </div>
+                    <div class="route-connector" style="
+                        flex: 0 0 100px; height: 4px; 
+                        background: linear-gradient(to right, #667eea, #764ba2);
+                        margin: 0 20px; position: relative; top: -15px;
+                    "></div>
+                    <div class="stopage-point text-center" style="flex: 1;">
+                        <div class="stopage-indicator mx-auto mb-2" style="
+                            width: 40px; height: 40px; background-color: #764ba2; 
+                            border-radius: 50%; display: flex; align-items: center; 
+                            justify-content: center; color: white; font-weight: bold;
+                        ">2</div>
+                        <div class="stopage-name"><strong>${routeInfo.end}</strong></div>
+                    </div>
+                `;
+            }
+            
+            routeHtml += `
+                    </div>
+                    <div class="route-legend mt-3">
+                        <small class="text-muted">
+                            <span style="color: #28a745;">●</span> Low Congestion 
+                            <span style="color: #ffc107;">●</span> Medium Congestion 
+                            <span style="color: #dc3545;">●</span> High Congestion
+                            | ↗️ Boarding | ↙️ Alighting
+                        </small>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = routeHtml;
+        }
+
         function renderRouteAnalytics(data) {
             // Route-specific analytics rendering
             if (data.daily_performance) {
                 const ctx = document.getElementById('revenueTrendChart').getContext('2d');
                 destroyChart('revenueTrend');
                 
+                // Filter out days with no data for better visualization
+                const filteredData = data.daily_performance.filter(d => d.trips > 0 || d.revenue > 0);
+                
                 charts.revenueTrend = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: data.daily_performance.map(d => d.date),
+                        labels: filteredData.map(d => d.date),
                         datasets: [{
                             label: 'Revenue (৳)',
-                            data: data.daily_performance.map(d => d.revenue),
+                            data: filteredData.map(d => d.revenue),
                             borderColor: '#667eea',
                             backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            tension: 0.4
+                            tension: 0.4,
+                            yAxisID: 'y'
                         }, {
                             label: 'Trips',
-                            data: data.daily_performance.map(d => d.trips),
+                            data: filteredData.map(d => d.trips),
                             borderColor: '#764ba2',
                             backgroundColor: 'rgba(118, 75, 162, 0.1)',
                             yAxisID: 'y1',
@@ -599,18 +828,32 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Daily Performance - Route ${data.route_info ? data.route_info.route_id : 'Selected'}`
+                            }
+                        },
                         scales: {
                             y: {
                                 type: 'linear',
                                 display: true,
                                 position: 'left',
-                                beginAtZero: true
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Revenue (৳)'
+                                }
                             },
                             y1: {
                                 type: 'linear',
                                 display: true,
                                 position: 'right',
                                 beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Trips'
+                                },
                                 grid: {
                                     drawOnChartArea: false,
                                 }
@@ -632,11 +875,15 @@
                         datasets: [{
                             label: 'Boarding',
                             data: data.stopage_congestion.map(s => s.boarding_count),
-                            backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 1
                         }, {
                             label: 'Alighting',
                             data: data.stopage_congestion.map(s => s.alighting_count),
-                            backgroundColor: 'rgba(118, 75, 162, 0.8)'
+                            backgroundColor: 'rgba(245, 87, 108, 0.8)',
+                            borderColor: 'rgba(245, 87, 108, 1)',
+                            borderWidth: 1
                         }]
                     },
                     options: {
@@ -645,7 +892,47 @@
                         plugins: {
                             title: {
                                 display: true,
-                                text: 'Passenger Traffic by Stopage'
+                                text: `Passenger Traffic by Stopage - Route ${data.route_info ? data.route_info.route_id : 'Selected'}`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Passengers'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hourly pattern for this route (if available)
+            if (data.hourly_pattern) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                charts.hourly = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.hourly_pattern.map(h => `${h.hour}:00`),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.hourly_pattern.map(h => h.tickets),
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Hourly Ticket Distribution - Route ${data.route_info ? data.route_info.route_id : 'Selected'}`
+                            },
+                            legend: {
+                                display: false
                             }
                         },
                         scales: {
@@ -658,8 +945,12 @@
             }
 
             // Hide unused charts for route view
-            destroyChart('hourly');
             destroyChart('bus');
+            
+            // Populate tables with route-specific data
+            if (data.stopage_congestion) {
+                populateStopageTable(data.stopage_congestion);
+            }
         }
 
         function renderBusAnalytics(data) {
@@ -671,11 +962,12 @@
                 charts.route = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
-                        labels: data.route_performance.map(r => r.route_id),
+                        labels: data.route_performance.map(r => r.route_name || r.route_id),
                         datasets: [{
                             data: data.route_performance.map(r => r.revenue),
                             backgroundColor: [
-                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'
+                                '#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe',
+                                '#00cdac', '#02aab0', '#fc466b', '#3f5efb', '#f093fb'
                             ]
                         }]
                     },
@@ -685,7 +977,7 @@
                         plugins: {
                             title: {
                                 display: true,
-                                text: 'Revenue by Route'
+                                text: `Revenue Distribution by Route - Bus ${data.bus_info ? data.bus_info.bus_id : 'Selected'}`
                             },
                             legend: {
                                 position: 'bottom'
@@ -699,16 +991,27 @@
                 const ctx = document.getElementById('revenueTrendChart').getContext('2d');
                 destroyChart('revenueTrend');
                 
+                // Filter out days with no data for better visualization
+                const filteredData = data.daily_performance.filter(d => d.trips > 0 || d.revenue > 0);
+                
                 charts.revenueTrend = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: data.daily_performance.map(d => d.date),
+                        labels: filteredData.map(d => d.date),
                         datasets: [{
                             label: 'Revenue (৳)',
-                            data: data.daily_performance.map(d => d.revenue),
+                            data: filteredData.map(d => d.revenue),
                             borderColor: '#667eea',
                             backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            tension: 0.4
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        }, {
+                            label: 'Trips',
+                            data: filteredData.map(d => d.trips),
+                            borderColor: '#764ba2',
+                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1'
                         }]
                     },
                     options: {
@@ -717,7 +1020,68 @@
                         plugins: {
                             title: {
                                 display: true,
-                                text: 'Daily Performance Trend'
+                                text: `Daily Performance - Bus ${data.bus_info ? data.bus_info.bus_id : 'Selected'}`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Revenue (৳)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Number of Trips'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Show bus info in hourly chart area
+            if (data.bus_info) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                const busInfoChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Owner', 'Total Routes', 'Total Trips', 'Total Revenue'],
+                        datasets: [{
+                            label: 'Bus Information',
+                            data: [
+                                1, // Owner count
+                                data.summary.routes_served || 0,
+                                data.summary.total_trips || 0,
+                                data.summary.total_revenue || 0
+                            ],
+                            backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Bus ${data.bus_info.bus_id} Overview`
+                            },
+                            legend: {
+                                display: false
                             }
                         },
                         scales: {
@@ -729,8 +1093,12 @@
                 });
             }
 
+            // Populate tables with bus-specific data
+            if (data.route_performance) {
+                populateRoutesTable(data.route_performance);
+            }
+
             // Hide unused charts
-            destroyChart('hourly');
             destroyChart('bus');
         }
 
@@ -815,6 +1183,11 @@
             // Hide unused charts
             destroyChart('hourly');
             destroyChart('bus');
+            
+            // Populate daily table with proper data
+            if (data.daily_breakdown) {
+                populateDailyTable(data.daily_breakdown);
+            }
         }
 
         function renderHourlyAnalytics(data) {
@@ -900,6 +1273,11 @@
             // Hide unused charts
             destroyChart('route');
             destroyChart('bus');
+            
+            // For hourly analytics, we can show a simplified daily table if available
+            if (data.daily_summary) {
+                populateDailyTable(data.daily_summary);
+            }
         }
 
         function populateRoutesTable(routes) {
@@ -1037,5 +1415,8 @@
             }
         }
     </script>
-</body>
-</html>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+{% endblock %}

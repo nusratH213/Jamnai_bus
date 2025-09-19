@@ -1,62 +1,192 @@
 {% extends 'app/head.html' %}
 {% block title %}Owner Dashboard{% endblock %}
-{% block navbar_heading %}Owner Dashboard{% endblock %}
+{% block navbar_heading %}🏢 Owner Dashboard{% endblock %}
 {% block content %}
-<style>
-    body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
-    select, button { padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; }
-    button { background: #007bff; color: white; border: none; cursor: pointer; }
-    button:hover { background: #0056b3; }
-</style>
 
 <div class="container">
-    <h1>Owner Dashboard</h1>
-    <h3>Start Journey</h3>
-    <form id="start-journey-form">
-        {% csrf_token %}
-        <label for="bus_id">Select Bus:</label>
-        <select name="bus_id" id="bus_id"></select>
+    <div class="text-center mb-20">
+        <h1>🚌 Fleet Management</h1>
+        <p style="font-size: 18px; color: var(--medium-gray); margin-bottom: 30px;">
+            Manage your buses and start journeys
+        </p>
+    </div>
 
-        <label for="route_id">Select Route:</label>
-        <select name="route_id" id="route_id"></select>
+    <!-- Journey Management Card -->
+    <div class="card card-primary">
+        <h3>🚀 Start New Journey</h3>
+        <p style="color: var(--medium-gray); margin-bottom: 20px;">
+            Select a bus and route to begin a new journey
+        </p>
+        
+        <form id="start-journey-form" class="input-form">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <label for="bus_id">🚌 Select Bus:</label>
+                    <select name="bus_id" id="bus_id" required>
+                        <option value="">Choose a bus...</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="route_id">🗺️ Select Route:</label>
+                    <select name="route_id" id="route_id" required>
+                        <option value="">Choose a route...</option>
+                    </select>
+                </div>
+            </div>
 
-        <input type="hidden" name="owner_id" id="owner_id" value="{{ user.id }}">
-        <button type="submit">Start Journey</button>
-    </form>
+            <input type="hidden" name="owner_id" id="owner_id" value="{{ user.id }}">
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button type="submit" class="btn-primary" style="padding: 12px 30px; font-size: 16px;">
+                    🚀 Start Journey
+                </button>
+            </div>
+        </form>
+    </div>
 
-    <div id="message" style="color: green;"></div>
+    <!-- Status Messages -->
+    <div id="message-container" style="display: none;">
+        <div id="message" class="card"></div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" style="display: none;">
+        <div class="card" style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 15px;">⏳</div>
+            <h4>Loading your fleet data...</h4>
+            <p style="color: var(--medium-gray);">Please wait while we fetch your buses and routes</p>
+        </div>
+    </div>
+
+    <!-- Fleet Overview -->
+    <div id="fleet-overview" style="display: none;">
+        <div class="card">
+            <h3>📊 Fleet Overview</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">🚌</div>
+                    <div style="font-size: 24px; font-weight: bold;" id="total-buses">0</div>
+                    <div style="font-size: 14px; opacity: 0.9;">Total Buses</div>
+                </div>
+                <div style="background: linear-gradient(135deg, var(--info-color), #42a5f5); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">🗺️</div>
+                    <div style="font-size: 24px; font-weight: bold;" id="total-routes">0</div>
+                    <div style="font-size: 14px; opacity: 0.9;">Available Routes</div>
+                </div>
+                <div style="background: linear-gradient(135deg, var(--success-color), #4caf50); color: white; padding: 20px; border-radius: 12px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">✅</div>
+                    <div style="font-size: 24px; font-weight: bold;">Active</div>
+                    <div style="font-size: 14px; opacity: 0.9;">Fleet Status</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <h3>⚡ Quick Actions</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 20px;">
+            <button onclick="refreshFleetData()" class="btn-secondary" style="height: 50px;">
+                🔄 Refresh Fleet Data
+            </button>
+            <button onclick="viewAnalytics()" class="btn-info" style="height: 50px;">
+                📊 View Analytics
+            </button>
+            <button onclick="manageSchedule()" class="btn-warning" style="height: 50px;">
+                📅 Manage Schedule
+            </button>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+        <h3>📋 Recent Activity</h3>
+        <div id="recent-activity">
+            <div style="text-align: center; padding: 30px; color: var(--medium-gray);">
+                <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                <p>No recent activity to display</p>
+                <small>Start a journey to see activity logs here</small>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const ownerId = document.getElementById("owner_id").value;
+    const loadingState = document.getElementById("loading-state");
+    const fleetOverview = document.getElementById("fleet-overview");
+    
+    // Show loading state
+    loadingState.style.display = "block";
 
+    // Load fleet data
     fetch(`/getbus/?owner_id=${ownerId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(data => {
+            // Hide loading state
+            loadingState.style.display = "none";
+            fleetOverview.style.display = "block";
+            
+            // Update fleet overview
+            document.getElementById("total-buses").textContent = data.buses ? data.buses.length : 0;
+            document.getElementById("total-routes").textContent = data.routes ? data.routes.length : 0;
+            
+            // Populate bus select
             const busSelect = document.getElementById("bus_id");
-            data.buses.forEach(bus => {
-                const option = document.createElement("option");
-                option.value = bus.id;
-                option.text = `Bus-${bus.id}`;
-                busSelect.appendChild(option);
-            });
+            if (data.buses && data.buses.length > 0) {
+                data.buses.forEach(bus => {
+                    const option = document.createElement("option");
+                    option.value = bus.id;
+                    option.text = `🚌 Bus-${bus.id}`;
+                    busSelect.appendChild(option);
+                });
+            } else {
+                busSelect.innerHTML = '<option value="">No buses available</option>';
+                busSelect.disabled = true;
+            }
 
+            // Populate route select
             const routeSelect = document.getElementById("route_id");
-            data.routes.forEach(route => {
-                const option = document.createElement("option");
-                option.value = route.route_id;
-                option.text = `${route.start_stopage__name} → ${route.end_stopage__name}`;
-                routeSelect.appendChild(option);
-            });
+            if (data.routes && data.routes.length > 0) {
+                data.routes.forEach(route => {
+                    const option = document.createElement("option");
+                    option.value = route.route_id;
+                    option.text = `🗺️ ${route.start_stopage__name} ➡️ ${route.end_stopage__name}`;
+                    routeSelect.appendChild(option);
+                });
+            } else {
+                routeSelect.innerHTML = '<option value="">No routes available</option>';
+                routeSelect.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading fleet data:', error);
+            loadingState.style.display = "none";
+            showMessage('❌ Error loading fleet data. Please refresh the page.', 'error');
         });
 
     // Handle form submission for starting journey
     document.getElementById("start-journey-form").addEventListener("submit", function (e) {
         e.preventDefault();
+        
         const busId = document.getElementById("bus_id").value;
         const routeId = document.getElementById("route_id").value;
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        
+        if (!busId || !routeId) {
+            showMessage('❌ Please select both a bus and route before starting the journey.', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '⏳ Starting Journey...';
+        submitBtn.disabled = true;
 
         fetch("/setbus/", {
             method: "POST",
@@ -70,16 +200,83 @@ document.addEventListener("DOMContentLoaded", function () {
                 owner_id: ownerId
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(data => {
-            const msgDiv = document.getElementById("message");
             if (data.message) {
-                msgDiv.innerText = `✅ ${data.message} | Trip ID: ${data.trip_id}`;
+                showMessage(`✅ ${data.message} | Trip ID: ${data.trip_id}`, 'success');
+                updateRecentActivity(`Journey started for Bus-${busId} on route ${routeId}`);
             } else if (data.error) {
-                msgDiv.innerText = `❌ ${data.error}`;
+                showMessage(`❌ ${data.error}`, 'error');
             }
+        })
+        .catch(error => {
+            console.error('Error starting journey:', error);
+            showMessage('❌ Error starting journey. Please try again.', 'error');
+        })
+        .finally(() => {
+            // Reset button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
         });
     });
 });
+
+function showMessage(message, type) {
+    const container = document.getElementById("message-container");
+    const messageDiv = document.getElementById("message");
+    
+    // Set message content
+    messageDiv.innerHTML = message;
+    
+    // Set appropriate styling based on type
+    if (type === 'success') {
+        messageDiv.className = 'card card-success';
+    } else if (type === 'error') {
+        messageDiv.className = 'card card-danger';
+    } else {
+        messageDiv.className = 'card card-info';
+    }
+    
+    // Show the message
+    container.style.display = "block";
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        container.style.display = "none";
+    }, 5000);
+}
+
+function updateRecentActivity(activity) {
+    const recentActivity = document.getElementById("recent-activity");
+    const now = new Date().toLocaleTimeString();
+    
+    recentActivity.innerHTML = `
+        <div style="padding: 15px; background: rgba(102, 126, 234, 0.05); border-left: 4px solid var(--primary-color); margin-bottom: 10px; border-radius: 0 8px 8px 0;">
+            <div style="display: flex; justify-content: between; align-items: center;">
+                <span style="font-weight: bold;">🚀 ${activity}</span>
+                <small style="color: var(--medium-gray); margin-left: auto;">${now}</small>
+            </div>
+        </div>
+    `;
+}
+
+function refreshFleetData() {
+    location.reload();
+}
+
+function viewAnalytics() {
+    // TODO: Navigate to analytics page
+    showMessage('📊 Analytics page navigation coming soon!', 'info');
+}
+
+function manageSchedule() {
+    // TODO: Navigate to schedule management
+    showMessage('📅 Schedule management coming soon!', 'info');
+}
 </script>
+
 {% endblock %}

@@ -1,138 +1,949 @@
 {% extends 'app/head.html' %}
 {% block title %}User Dashboard{% endblock %}
 {% block navbar_heading %}
-    User Dashboard
+    🚌 User Dashboard
 {% endblock %}
 {% block content %}
-<style>
-    .container { 
-        background: white; 
-        padding: 20px; 
-        border-radius: 8px; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-        max-width: 1000px; 
-        margin: auto; 
-    }
-    table { 
-        width: 100%; 
-        border-collapse: collapse; 
-        margin-top: 20px; 
-    }
-    th, td { 
-        border: 1px solid #ddd; 
-        padding: 12px; 
-        text-align: center; 
-    }
-    th { 
-        background-color: #ffeeba; 
-    }
-    .route-box { 
-        margin-top: 20px; 
-    }
-    .status-log { 
-        background: #f8f9fa; 
-        padding: 10px; 
-        border-radius: 4px; 
-        margin-top: 20px; 
-    }
-    .input-form {
-        text-align: center; 
-        margin: 20px 0;
-    }
-    .input-form input {
-        padding: 6px; 
-        margin: 0 8px; 
-    }
-    .input-form button {
-        padding: 6px 12px; 
-        background-color: #ffc107; 
-        border: none; 
-        border-radius: 4px; 
-        cursor: pointer;
-    }
-    .input-form button:hover {
-        background-color: #e0a800;
-    }
-</style>
 
 <div class="container">
-        <form class="input-form" method="POST">
-            {% csrf_token %}
-            <label for="source">Source:</label>
-            <input type="text" id="source" name="source" list="stopage-list" required>
+    <div class="text-center mb-20">
+        <h1>🗺️ Route Finder</h1>
+        <p style="font-size: 18px; color: var(--medium-gray); margin-bottom: 30px;">
+            Find the perfect bus route for your journey
+        </p>
+    </div>
 
-            <label for="destination">Destination:</label>
-            <input type="text" id="destination" name="destination" list="stopage-list" required>
+    <form class="modern-route-form" method="POST">
+        {% csrf_token %}
+        <input type="hidden" id="user_timezone" name="user_timezone" value="">
+        
+        <!-- Form Header -->
+        <div class="form-header">
+            <h3>🎯 Plan Your Journey</h3>
+            <p>Enter your pickup and drop-off locations</p>
+        </div>
 
-            <datalist id="stopage-list"></datalist>
+        <!-- Input Fields Container -->
+        <div class="input-container">
+            <!-- From Input -->
+            <div class="input-wrapper">
+                <div class="input-group">
+                    <label for="from_location" class="input-label">From</label>
+                    <input type="text" 
+                           id="from_location" 
+                           name="source" 
+                           required 
+                           placeholder="Enter pickup location"
+                           autocomplete="off"
+                           class="location-input">
+                    <div class="suggestions-dropdown" id="from-suggestions"></div>
+                </div>
+            </div>
+            <!-- Swap Button -->
+            <div class="swap-container">
+                <button type="button" class="swap-btn" onclick="swapLocations()" title="Swap locations">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/>
+                    </svg>
+                </button>
+            </div>
 
-            <button type="submit">Submit</button>
-        </form>
+            <!-- To Input -->
+            <div class="input-wrapper">
+                <div class="input-group">
+                    <label for="to_location" class="input-label">To</label>
+                    <input type="text" 
+                           id="to_location" 
+                           name="destination" 
+                           required 
+                           placeholder="Enter destination"
+                           autocomplete="off"
+                           class="location-input">
+                    <div class="suggestions-dropdown" id="to-suggestions"></div>
+                </div>
+            </div>
+        </div>
 
+        <!-- Submit Button -->
+        <div class="submit-container">
+            <button type="submit" class="search-btn">
+                <span class="btn-icon">🔍</span>
+                <span class="btn-text">Find My Route</span>
+                <div class="btn-loading">
+                    <div class="spinner"></div>
+                </div>
+            </button>
+        </div>
+    </form>
+
+    <style>
+        .modern-route-form {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-header h3 {
+            color: #2c5aa0;
+            margin: 0 0 8px 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .form-header p {
+            color: #6b7280;
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-label {
+            position: absolute;
+            top: -8px;
+            left: 16px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 0 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #2c5aa0;
+            z-index: 1;
+        }
+
+        .location-input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            outline: none;
+        }
+
+        .location-input:focus {
+            border-color: #2c5aa0;
+            box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .location-input:valid {
+            border-color: #10b981;
+        }
+
+        .suggestions-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .suggestions-dropdown.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 0.95rem;
+            color: #374151;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-item:hover,
+        .suggestion-item.highlighted {
+            background: #f8fafc;
+            color: #2c5aa0;
+            font-weight: 500;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .swap-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .swap-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e40af 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
+        }
+
+        .swap-btn:hover {
+            transform: scale(1.1) rotate(180deg);
+            box-shadow: 0 6px 20px rgba(44, 90, 160, 0.4);
+        }
+
+        .submit-container {
+            text-align: center;
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e40af 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(44, 90, 160, 0.3);
+        }
+
+        .search-btn.loading {
+            pointer-events: none;
+        }
+
+        .btn-loading {
+            display: none;
+        }
+
+        .search-btn.loading .btn-text,
+        .search-btn.loading .btn-icon {
+            display: none;
+        }
+
+        .search-btn.loading .btn-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .modern-route-form {
+                padding: 20px;
+                margin: 10px;
+                border-radius: 16px;
+            }
+
+            .form-header h3 {
+                font-size: 1.5rem;
+            }
+
+            .location-input {
+                padding: 14px 16px;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+
+            .search-btn {
+                padding: 14px 30px;
+                font-size: 1rem;
+                width: 100%;
+            }
+        }
+    </style>
 
     {% if routes_with_path %}
-        <div class="route-box">
-            <h3>Matching Routes:</h3>
+        <div class="route-box card-primary">
+            <h3>✅ Matching Routes Found:</h3>
             {% for route_info in routes_with_path %}
-                <p><strong>Route ID:</strong> {{ route_info.route.route_id }}</p>
-                <p>{{ route_info.stopages|join:" ⇄ " }}</p>
-                <hr>
+                <div class="card" style="margin: 15px 0; padding: 20px; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));">
+                    <p><strong>🚍 Route ID:</strong> 
+                        <span style="background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold;">
+                            {{ route_info.route.route_id }}
+                        </span>
+                    </p>
+                    <p style="font-size: 16px; margin: 10px 0; font-weight: 500;">
+                        🛣️ {{ route_info.stopages|join:" ➡️ " }}
+                    </p>
+                </div>
+                {% if not forloop.last %}
+                    <hr style="border: none; height: 2px; background: linear-gradient(90deg, var(--primary-color), var(--secondary-color)); margin: 20px 0; border-radius: 1px;">
+                {% endif %}
             {% endfor %}
         </div>
     {% elif request.method == "POST" %}
-        <p>No route found containing both stopages in order.</p>
+        <div class="card card-warning">
+            <h3>⚠️ No Routes Found</h3>
+            <p>Sorry, no direct route found containing both stopages in order. Please try different locations or check for alternative routes.</p>
+        </div>
     {% endif %}
 
-    <table>
-        <thead>
-            <tr>
-                <th>Bus ID</th>
-                <th>Last Stopage</th>
-                <th>Last Departure</th>
-                <th>Estimated</th>
-                <th>Updated At</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for bus in buses_info %}
-            <tr>
-                <td>{{ bus.bus_id }}</td>
-                <td>{{ bus.last_stopage }}</td>
-                <td>{{ bus.last_departure }}</td>
-                <td>{{ bus.estimated_time }}</td>
-                <td>{{ bus.updated_at|date:"h:i A" }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5">No buses found</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <!-- <div class="status-log">
-        <h4>Recent Activity Logs</h4>
-        <ul>
-            <li>[09:03 AM] Manager at Kazipara confirmed arrival</li>
-            <li>[08:55 AM] Bus-101 started from Mirpur 10</li>
-            <li>[08:40 AM] Bus-103 completed journey at Jatrabari</li>
+    <div class="card">
+        <h3>🚌 Live Bus Tracking</h3>
+        <p style="color: var(--medium-gray); margin-bottom: 20px;">
+            Real-time information about bus locations and estimated arrival times
+        </p>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>🚌 Bus ID</th>
+                        <th>📍 Current Location</th>
+                        <th>🕐 Last Departure</th>
+                        <th>⏱️ Estimated Arrival</th>
+                        <th>🔄 Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bus in buses_info %}
+                    <tr>
+                        <td>
+                            <span style="background: linear-gradient(45deg, var(--info-color), #42a5f5); color: white; padding: 5px 12px; border-radius: 15px; font-weight: bold;">
+                                {{ bus.bus_id }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>{{ bus.last_stopage|default:"Not Available" }}</strong>
+                        </td>
+                        <td>{{ bus.last_departure|default:"--" }}</td>
+                        <td>
+                            <span style="color: var(--success-color); font-weight: bold;">
+                                {{ bus.estimated_time|default:"Calculating..." }}
+                            </span>
+                        </td>
+                        <td>
+                            <small style="color: var(--medium-gray);">
+                                {{ bus.updated_at|date:"h:i A"|default:"--" }}
+                            </small>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: var(--medium-gray);">
+                            <div style="font-size: 48px; margin-bottom: 15px;">🚌</div>
+                            <strong>No buses currently tracking</strong>
+                            <br>
+                            <small>Check back later for live updates</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Optional: Activity Logs Section -->
+    {% comment %}
+    <div class="status-log">
+        <h4>📋 Recent Activity</h4>
+        <ul style="list-style: none; padding: 0;">
+            <li style="padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.1); display: flex; align-items: center;">
+                <span style="font-size: 20px; margin-right: 10px;">✅</span>
+                <span><strong>[09:03 AM]</strong> Manager at Kazipara confirmed arrival</span>
+            </li>
+            <li style="padding: 10px 0; border-bottom: 1px solid rgba(0,0,0,0.1); display: flex; align-items: center;">
+                <span style="font-size: 20px; margin-right: 10px;">🚀</span>
+                <span><strong>[08:55 AM]</strong> Bus-101 started from Mirpur 10</span>
+            </li>
+            <li style="padding: 10px 0; display: flex; align-items: center;">
+                <span style="font-size: 20px; margin-right: 10px;">🏁</span>
+                <span><strong>[08:40 AM]</strong> Bus-103 completed journey at Jatrabari</span>
+            </li>
         </ul>
-    </div> -->
+    </div>
+    {% endcomment %}
 </div>
 
 <script>
-    window.addEventListener('DOMContentLoaded', () => {
-        fetch('/gets/')
-            .then(response => response.json())
-            .then(data => {
-                const list = document.getElementById('stopage-list');
-                if (data.destinations) {
-                    data.destinations.forEach(stopage => {
-                        const option = document.createElement('option');
-                        option.value = stopage;
-                        list.appendChild(option);
-                    });
-                }
-            })
-            .catch(error => console.error('Error loading stopages:', error));
-    });
-</script>
+class TrieNode {
+    constructor() {
+        this.children = {};
+        this.isEndOfWord = false;
+        this.word = '';
+    }
+}
 
-{% endblock %}
+class Trie {
+    constructor() {
+        this.root = new TrieNode();
+    }
+
+    insert(word) {
+        let current = this.root;
+        const normalizedWord = word.toLowerCase();
+        
+        for (let char of normalizedWord) {
+            if (!current.children[char]) {
+                current.children[char] = new TrieNode();
+            }
+            current = current.children[char];
+        }
+        
+        current.isEndOfWord = true;
+        current.word = word; // Store original word with proper casing
+    }
+
+    searchPrefix(prefix) {
+        let current = this.root;
+        const normalizedPrefix = prefix.toLowerCase();
+        
+        // Navigate to the prefix node
+        for (let char of normalizedPrefix) {
+            if (!current.children[char]) {
+                return []; // Prefix not found
+            }
+            current = current.children[char];
+        }
+        
+        // Collect all words with this prefix
+        const results = [];
+        this._collectWords(current, results);
+        return results.slice(0, 10); // Limit to 10 suggestions for performance
+    }
+
+    _collectWords(node, results) {
+        if (node.isEndOfWord) {
+            results.push(node.word);
+        }
+        
+        // Sort children alphabetically for consistent ordering
+        const sortedKeys = Object.keys(node.children).sort();
+        for (let key of sortedKeys) {
+            this._collectWords(node.children[key], results);
+        }
+    }
+
+    // Get suggestions with fuzzy matching (allows for typos)
+    fuzzySearch(query, maxDistance = 1) {
+        const results = [];
+        const normalizedQuery = query.toLowerCase();
+        
+        this._fuzzySearchHelper(this.root, '', normalizedQuery, 0, maxDistance, results);
+        return results.slice(0, 8); // Limit results
+    }
+
+    _fuzzySearchHelper(node, currentWord, query, position, maxDistance, results) {
+        if (results.length >= 8) return; // Early termination
+        
+        if (node.isEndOfWord && Math.abs(currentWord.length - query.length) <= maxDistance) {
+            const distance = this._levenshteinDistance(currentWord, query);
+            if (distance <= maxDistance) {
+                results.push({ word: node.word, distance });
+            }
+        }
+        
+        if (position < query.length || maxDistance > 0) {
+            for (let char in node.children) {
+                // Exact match
+                if (position < query.length && char === query[position]) {
+                    this._fuzzySearchHelper(
+                        node.children[char], 
+                        currentWord + char, 
+                        query, 
+                        position + 1, 
+                        maxDistance, 
+                        results
+                    );
+                }
+                // Insertion, deletion, substitution (if we have distance budget)
+                else if (maxDistance > 0) {
+                    // Substitution
+                    if (position < query.length) {
+                        this._fuzzySearchHelper(
+                            node.children[char], 
+                            currentWord + char, 
+                            query, 
+                            position + 1, 
+                            maxDistance - 1, 
+                            results
+                        );
+                    }
+                    
+                    // Insertion
+                    this._fuzzySearchHelper(
+                        node.children[char], 
+                        currentWord + char, 
+                        query, 
+                        position, 
+                        maxDistance - 1, 
+                        results
+                    );
+                }
+            }
+            
+            // Deletion (skip character in query)
+            if (position < query.length && maxDistance > 0) {
+                this._fuzzySearchHelper(
+                    node, 
+                    currentWord, 
+                    query, 
+                    position + 1, 
+                    maxDistance - 1, 
+                    results
+                );
+            }
+        }
+    }
+
+    _levenshteinDistance(str1, str2) {
+        const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+        
+        for (let i = 0; i <= str1.length; i++) {
+            matrix[0][i] = i;
+        }
+        
+        for (let j = 0; j <= str2.length; j++) {
+            matrix[j][0] = j;
+        }
+        
+        for (let j = 1; j <= str2.length; j++) {
+            for (let i = 1; i <= str1.length; i++) {
+                const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+                matrix[j][i] = Math.min(
+                    matrix[j][i - 1] + 1,     // insertion
+                    matrix[j - 1][i] + 1,     // deletion
+                    matrix[j - 1][i - 1] + indicator // substitution
+                );
+            }
+        }
+        
+        return matrix[str2.length][str1.length];
+    }
+}
+
+class TrieBasedAutocomplete {
+    constructor() {
+        this.trie = new Trie();
+        this.stopages = [];
+        this.currentFocus = -1;
+        this.searchCache = new Map(); // Cache for better performance
+        this.init();
+    }
+
+    async init() {
+        this.showLoadingIndicator();
+        await this.loadStopages();
+        this.buildTrie();
+        this.setupEventListeners();
+        this.hideLoadingIndicator();
+    }
+
+    showLoadingIndicator() {
+        // Silent loading for production
+    }
+
+    hideLoadingIndicator() {
+        // Silent completion for production
+    }
+
+    async loadStopages() {
+        try {
+            const response = await fetch('/gets/');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const data = await response.json();
+            if (data.destinations && Array.isArray(data.destinations)) {
+                this.stopages = data.destinations;
+            } else {
+                throw new Error('Invalid data format');
+            }
+        } catch (error) {
+            // Fallback to offline data
+            this.stopages = [
+                'Dhaka University', 'Shahbag', 'Dhanmondi', 'Gulistan', 'Motijheel',
+                'Uttara', 'Mirpur', 'Pallabi', 'Tejgaon', 'Ramna Park', 'Farmgate',
+                'Banani', 'Wari', 'Old Dhaka', 'Gazipur', 'Savar', 'Tongi', 'Jatrabari',
+                'Sadarghat', 'Kamalapur', 'Malibagh', 'Rampura', 'Badda', 'Baridhara',
+                'Kazipara', 'Shyamoli', 'Mohakhali', 'Bijoy Sarani', 'Karwan Bazar',
+                'Panthapath', 'Green Road', 'Elephant Road', 'Science Lab', 'Asad Gate',
+                'Dhanmondi 32', 'Kalabagan', 'Lalmatia', 'Mohammadpur', 'Shukrabad',
+                'Azimpur', 'New Market', 'Nilkhet', 'Press Club', 'Secretariat',
+                'Bangla Motor', 'Kawran Bazar', 'Bijoynagar', 'Paltan', 'Arambagh'
+            ];
+        }
+    }
+
+    buildTrie() {
+        const startTime = performance.now();
+        
+        // Insert all stopages into the Trie
+        this.stopages.forEach(stopage => {
+            this.trie.insert(stopage);
+            
+            // Also insert individual words for better partial matching
+            const words = stopage.split(/\s+/);
+            words.forEach(word => {
+                if (word.length > 2) { // Skip very short words
+                    this.trie.insert(word + ' → ' + stopage);
+                }
+            });
+        });
+        
+        const endTime = performance.now();
+    }
+
+    setupEventListeners() {
+        const fromInput = document.getElementById('from_location');
+        const toInput = document.getElementById('to_location');
+
+        [fromInput, toInput].forEach(input => {
+            if (!input) return;
+
+            input.addEventListener('input', (e) => this.handleInput(e));
+            input.addEventListener('keydown', (e) => this.handleKeydown(e));
+            input.addEventListener('focus', (e) => this.handleFocus(e));
+            input.addEventListener('blur', (e) => this.handleBlur(e));
+        });
+
+        // Setup form submission
+        const form = document.querySelector('.modern-route-form');
+        if (form) {
+            form.addEventListener('submit', (e) => this.handleSubmit(e));
+        }
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.input-group')) {
+                this.hideSuggestions();
+            }
+        });
+    }
+
+    handleInput(e) {
+        const input = e.target;
+        const query = input.value.trim();
+        
+        if (query.length < 2) {
+            this.hideSuggestions();
+            return;
+        }
+
+        // Check cache first for performance
+        const cacheKey = query.toLowerCase();
+        if (this.searchCache.has(cacheKey)) {
+            const cachedResults = this.searchCache.get(cacheKey);
+            this.showSuggestions(input, cachedResults, query);
+            return;
+        }
+
+        // Use Trie for lightning-fast prefix search
+        let suggestions = this.trie.searchPrefix(query);
+        
+        // If not enough exact matches, try fuzzy matching
+        if (suggestions.length < 3 && query.length >= 3) {
+            const fuzzyResults = this.trie.fuzzySearch(query, 1);
+            const fuzzyWords = fuzzyResults
+                .sort((a, b) => a.distance - b.distance)
+                .map(result => result.word);
+            suggestions = [...suggestions, ...fuzzyWords];
+        }
+
+        // Remove duplicates and clean up
+        suggestions = [...new Set(suggestions)]
+            .filter(s => !s.includes(' → ')) // Remove partial word matches
+            .slice(0, 8);
+
+        // Cache the results
+        this.searchCache.set(cacheKey, suggestions);
+        
+        // Limit cache size to prevent memory issues
+        if (this.searchCache.size > 100) {
+            const firstKey = this.searchCache.keys().next().value;
+            this.searchCache.delete(firstKey);
+        }
+
+        this.showSuggestions(input, suggestions, query);
+    }
+
+    handleKeydown(e) {
+        const dropdown = e.target.parentElement.querySelector('.suggestions-dropdown');
+        if (!dropdown || !dropdown.classList.contains('show')) return;
+
+        const items = dropdown.querySelectorAll('.suggestion-item:not(.no-results)');
+        
+        switch(e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.currentFocus = Math.min(this.currentFocus + 1, items.length - 1);
+                this.updateFocus(items);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                this.currentFocus = Math.max(this.currentFocus - 1, -1);
+                this.updateFocus(items);
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (this.currentFocus >= 0 && items[this.currentFocus]) {
+                    this.selectSuggestion(e.target, items[this.currentFocus].textContent);
+                }
+                break;
+            case 'Escape':
+                this.hideSuggestions();
+                break;
+            case 'Tab':
+                // Auto-complete with first suggestion
+                if (items.length > 0) {
+                    e.preventDefault();
+                    this.selectSuggestion(e.target, items[0].textContent);
+                }
+                break;
+        }
+    }
+
+    handleFocus(e) {
+        const query = e.target.value.trim();
+        if (query.length >= 2) {
+            this.handleInput(e);
+        }
+    }
+
+    handleBlur(e) {
+        // Delay hiding to allow clicking on suggestions
+        setTimeout(() => {
+            if (!e.target.parentElement.querySelector('.suggestions-dropdown:hover')) {
+                this.hideSuggestions();
+            }
+        }, 150);
+    }
+
+    showSuggestions(input, suggestions, query) {
+        const dropdown = input.parentElement.querySelector('.suggestions-dropdown');
+        dropdown.innerHTML = '';
+        this.currentFocus = -1;
+
+        if (suggestions.length === 0) {
+            dropdown.innerHTML = `
+                <div class="suggestion-item no-results" style="color: #9ca3af; font-style: italic;">
+                    🔍 No matching locations found for "${query}"
+                </div>
+            `;
+        } else {
+            suggestions.forEach((suggestion, index) => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                
+                // Enhanced highlighting with case-insensitive matching
+                const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                const highlightedText = suggestion.replace(regex, '<strong style="color: #2c5aa0; background: rgba(44, 90, 160, 0.1); padding: 1px 3px; border-radius: 3px;">$1</strong>');
+                
+                item.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 16px;">🚌</span>
+                        <span>${highlightedText}</span>
+                    </div>
+                `;
+                
+                item.addEventListener('click', () => {
+                    this.selectSuggestion(input, suggestion);
+                });
+                
+                dropdown.appendChild(item);
+            });
+        }
+
+        dropdown.classList.add('show');
+    }
+
+    updateFocus(items) {
+        items.forEach((item, index) => {
+            item.classList.toggle('highlighted', index === this.currentFocus);
+            if (index === this.currentFocus) {
+                item.scrollIntoView({ block: 'nearest' });
+            }
+        });
+    }
+
+    selectSuggestion(input, value) {
+        input.value = value;
+        input.classList.add('selected');
+        this.hideSuggestions();
+        
+        // Add visual feedback
+        input.style.borderColor = '#10b981';
+        input.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
+        
+        // Add success animation
+        const successIcon = document.createElement('div');
+        successIcon.innerHTML = '✅';
+        successIcon.style.cssText = `
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            animation: successPulse 0.6s ease-out;
+        `;
+        
+        const inputGroup = input.parentElement;
+        inputGroup.style.position = 'relative';
+        inputGroup.appendChild(successIcon);
+        
+        setTimeout(() => {
+            if (successIcon.parentNode) {
+                successIcon.parentNode.removeChild(successIcon);
+            }
+            input.style.borderColor = '';
+            input.style.boxShadow = '';
+        }, 1500);
+    }
+
+    hideSuggestions() {
+        document.querySelectorAll('.suggestions-dropdown').forEach(dropdown => {
+            dropdown.classList.remove('show');
+        });
+        this.currentFocus = -1;
+    }
+
+    handleSubmit(e) {
+        const fromInput = document.getElementById('from_location');
+        const toInput = document.getElementById('to_location');
+        
+        if (!fromInput?.value.trim() || !toInput?.value.trim()) {
+            e.preventDefault();
+            alert('Please enter both pickup and drop-off locations.');
+            return;
+        }
+
+        // Add loading state
+        const submitBtn = document.querySelector('.search-btn');
+        submitBtn.classList.add('loading');
+        
+        // Show loading message
+        setTimeout(() => {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="spinner" style="width: 20px; height: 20px;"></div>
+                    <span>Searching routes...</span>
+                </div>
+            `;
+            loadingDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(44, 90, 160, 0.95);
+                color: white;
+                padding: 20px 30px;
+                border-radius: 12px;
+                font-weight: 600;
+                z-index: 1001;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            `;
+            document.body.appendChild(loadingDiv);
+        }, 100);
+    }
+}
+
+// Enhanced CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes successPulse {
+        0% { transform: translateY(-50%) scale(0); opacity: 0; }
+        50% { transform: translateY(-50%) scale(1.2); opacity: 1; }
+        100% { transform: translateY(-50%) scale(1); opacity: 1; }
+    }
+    
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .suggestion-item {
+        transition: all 0.15s ease;
+    }
+    
+    .suggestion-item:hover {
+        background: linear-gradient(135deg, #f8fafc 0%, #e5e7eb 100%);
+        transform: translateX(2px);
+    }
+`;
+document.head.appendChild(style);
+
+// Utility functions
+window.swapLocations = function() {
+    const fromInput = document.getElementById('from_location');
+    const toInput = document.getElementById('to_location');
+    
+    if (!fromInput || !toInput) return;
+    
+    const temp = fromInput.value;
+    fromInput.value = toInput.value;
+    toInput.value = temp;
+    
+    // Add visual feedback
+    const swapBtn = document.querySelector('.swap-btn');
+    if (swapBtn) {
+        swapBtn.style.transform = 'scale(1.1) rotate(180deg)';
+        setTimeout(() => {
+            swapBtn.style.transform = '';
+        }, 300);
+    }
+};
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Detect and set user's timezone
+    const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timezoneInput = document.getElementById('user_timezone');
+    if (timezoneInput) {
+        timezoneInput.value = userTimezone;
+        console.log('User timezone detected:', userTimezone);
+    }
+    
+    new TrieBasedAutocomplete();
+});
+</script>{% endblock %}

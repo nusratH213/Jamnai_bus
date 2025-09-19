@@ -44,15 +44,32 @@ def user_logout(request):
     return redirect('login')
 
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+import pytz
+
 def search_routes(request):
     routes_with_path = []
     buses_info = []
+    
+    # Get user's timezone from request (default to Asia/Dhaka)
+    user_timezone_str = request.POST.get('user_timezone', 'Asia/Dhaka')
+    try:
+        user_timezone = pytz.timezone(user_timezone_str)
+    except:
+        # Fallback to default timezone
+        user_timezone = pytz.timezone('Asia/Dhaka')
+    
+    print(f"Using timezone: {user_timezone_str}")
 
     if request.method == "POST":
         source = request.POST.get("source", "").strip().lower()
         destination = request.POST.get("destination", "").strip().lower()
-        current_time = timezone.localtime().time()
+        
+        # Get current time in user's timezone
+        current_time_utc = timezone.now()
+        current_time_user = current_time_utc.astimezone(user_timezone)
+        print(f"Current time in user timezone ({user_timezone_str}): {current_time_user}")
+        
         for route in Route.objects.all():
             route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
             stopage_names = [rs.stopage.name.strip().lower() for rs in route_stopages]
@@ -82,23 +99,82 @@ def search_routes(request):
                         print(f"Schedules for trip {trip.trip_id}: {schedules}")
                         last_schedule = None
                         for sched in schedules:
-                            if (sched.departure_time and sched.departure_time < current_time) or not sched.departure_time:
+                            if (sched.departure_time and sched.departure_time < current_time_user.time()) or not sched.departure_time:
                                 last_schedule = sched
                             else:
                                 break
                         # print(f"Last schedule for trip {trip.trip_id}: {last_schedule}")
-                        last_schedule= schedules.filter(departure_time__isnull=True).last() if schedules.filter(departure_time__isnull=True).last()  else last_schedule
+                        # Prioritize current location (no departure time) over past schedules
+                        current_location_schedule = schedules.filter(departure_time__isnull=True).last()
+                        last_schedule = current_location_schedule if current_location_schedule else last_schedule
+                        
                         if last_schedule:
                             try:
                                 stop_order = RouteStopage.objects.get(route=route, stopage=last_schedule.stopage).order
                                 print(f"Stop order for last schedule: {stop_order} and source index: {source_index}")
                                 if stop_order <= source_index:
+                                    # Initialize estimated_time
+                                    estimated_time = "Unknown"
+                                    
+                                    # Calculate estimated time using distance
+                                    if str(last_schedule.stopage.name).lower() == str(source).lower():
+                                        # Bus is at the source station
+                                        current_local_time = current_time_user
+                                        estimated_time = current_local_time.strftime("%H:%M")
+                                        print(f"Bus at source - Current user time: {current_local_time}, formatted: {estimated_time}")
+                                    else:
+                                        try:
+                                            # Get cumulative distances
+                                            current_stopage_route = RouteStopage.objects.get(route=route, stopage=last_schedule.stopage)
+                                            source_stopage_route = RouteStopage.objects.get(route=route, stopage__name__iexact=source)
+                                            
+                                            # Calculate distance difference (source distance - current distance)
+                                            distance_to_travel = source_stopage_route.distance_from_last_stopage - current_stopage_route.distance_from_last_stopage
+                                            
+                                            print(f"Distance calculation: current={current_stopage_route.distance_from_last_stopage}, source={source_stopage_route.distance_from_last_stopage}, to_travel={distance_to_travel}")
+                                            
+                                            if distance_to_travel <= 0:
+                                                current_local_time = current_time_user
+                                                estimated_time = current_local_time.strftime("%H:%M")
+                                                print(f"Distance <= 0 - Current user time: {current_local_time}, formatted: {estimated_time}")
+                                            else:
+                                                # Calculate time: 3 minutes per kilometer
+                                                travel_time_minutes = distance_to_travel * 3
+                                                
+                                                if last_schedule.departure_time:
+                                                    # Bus has departed, add travel time to departure time
+                                                    departure_datetime = datetime.combine(timezone.localdate(), last_schedule.departure_time)
+                                                    departure_datetime_user = user_timezone.localize(departure_datetime.replace(tzinfo=None))
+                                                    estimated_arrival = departure_datetime_user + timedelta(minutes=travel_time_minutes)
+                                                    estimated_time = estimated_arrival.strftime("%H:%M")
+                                                    print(f"Departed bus - Departure: {departure_datetime_user}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
+                                                elif current_location_schedule:
+                                                    # Bus is currently at station, estimate from now
+                                                    current_datetime = current_time_user
+                                                    estimated_arrival = current_datetime + timedelta(minutes=travel_time_minutes)
+                                                    estimated_time = estimated_arrival.strftime("%H:%M")
+                                                    print(f"At station - Current: {current_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
+                                                elif not (route.start_stopage.departure_time):
+                                                    estimated_time ="Not Started Yet"
+                                                else:
+                                                    # Fallback: just show travel time as minutes
+                                                    estimated_time = f"{int(travel_time_minutes)} mins"
+                                        except RouteStopage.DoesNotExist as e:
+                                            print(f"RouteStopage not found: {e}")
+                                            # Fallback if route stopage data is missing
+                                            estimated_time = "Soon"
+                                        except Exception as e:
+                                            print(f"Error calculating estimated time: {e}")
+                                            estimated_time = "Unknown"
+                                    
+                                    print(f"Final estimated_time for bus {trip.bus.id}: '{estimated_time}' (type: {type(estimated_time)})")
+                                    
                                     buses_info.append({
                                         'bus_id': trip.bus.id,
                                         'last_stopage': last_schedule.stopage.name,
-                                        'last_departure': big.departure_time if big else None,
-                                        'estimated_time': 0 if(str(last_schedule.stopage.name).lower() == str(source).lower()) else  (datetime.combine(datetime.today(), last_schedule.departure_time) + timedelta(minutes=30)).time() if last_schedule.departure_time else "inf",
-                                        'updated_at': timezone.localtime()
+                                        'last_departure': big.departure_time.strftime("%H:%M") if big and big.departure_time else "Not Departed",
+                                        'estimated_time': estimated_time if big else "Infinity", 
+                                        'updated_at': current_time_user
                                     })
                                 # print(f"Bus {trip.bus.id} last stopage: {last_schedule.stopage.name if last_schedule else 'N/A'}")
                             except RouteStopage.DoesNotExist:
@@ -108,8 +184,6 @@ def search_routes(request):
         'routes_with_path': routes_with_path,
         'buses_info': buses_info
     })
-   
-
 
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -126,11 +200,12 @@ def f(request):
             content_type="application/json",
             status=405
         )
-
+    print(json.loads(request.body))
     try:
         data = json.loads(request.body)
+        print(data)
         bus_id = data.get("busid")
-        on_flag = data.get("on")
+        on_flag = int(data.get("on"))
         card_id = data.get("card_id")
         print(card_id)
     except Exception as e:
@@ -232,7 +307,6 @@ def f(request):
                 content_type="application/json",
                 status=404
             )
-
         ticket.end_stopage = current_stopage
         ticket.save(update_fields=["end_stopage"])
         costs=RouteStopage.objects.get(route_id=trip.route,stopage=ticket.start_stopage).distance_from_last_stopage
@@ -278,7 +352,6 @@ def g(request):
         except Road.DoesNotExist:
             data[mp[rid]] = 0
             continue
-
         # Get latest ImgNow for this road and stopage 
         latest = ImgNow.objects.filter(road=road, stopage=stopage).order_by('-time').first()
         print(f"Road: {rid} {mp[rid]} {latest}")
@@ -318,7 +391,7 @@ def setg_view(request):
         stopage=stopage,
         road=road,
         value=value,
-        time=now()
+        time=timezone.localtime()
     )
 
     return JsonResponse({
@@ -421,7 +494,7 @@ def setbus(request):
         trip_id=f"TRIP-{uuid4().hex[:8]}",
         route=route,
         bus=bus,
-        date=timezone.now().date(),
+        date=timezone.localdate(),
         is_ended=False,
         available_seats=50,
         total_seats=50,
@@ -437,7 +510,7 @@ def setbus(request):
     Schedule.objects.create(
         trip=trip,
         stopage=first_route_stopage.stopage,
-        arrival_time=timezone.now().time(),  # Use current time
+        arrival_time=timezone.localtime().time(),  # Use current local time
     )
 
         # departure_time=timezone.now().time()  # Optional: can leave as same or None
@@ -547,7 +620,7 @@ def updatestop(request):
         return Response({"error": "No active trip for this bus."}, status=status.HTTP_404_NOT_FOUND)
 
 
-    now_time = timezone.now().time()
+    now_time = timezone.localtime().time()
     if arrive_flag == 1:
         try:
             schedule = Schedule.objects.get(trip=trip, stopage=stopage)
@@ -622,5 +695,35 @@ from app.models import Stopage
 def gets(request):
     dest = Stopage.objects.all().values_list('name', flat=True)
     return JsonResponse({"destinations": list(dest)})
+
+@login_required
+def api_tester(request):
+    """API Testing/Debugging Dashboard"""
+    if not request.user.is_staff and request.user.role not in ['Owner', 'Admin']:
+        return HttpResponse("You are not authorized to view this page.", status=403)
+    
+    # Import models that might not be imported yet
+    from app.models import User, Owner, Road, Stopage
+    
+    # Get all available data for dropdowns
+    users = User.objects.all()
+    buses = User.objects.filter(role='bus')
+    owners = User.objects.filter(role='Owner')
+    routes = Route.objects.all()
+    stopages = Stopage.objects.all()
+    roads = Road.objects.all()
+    cards = Card.objects.all()
+    trips = Trip.objects.filter(is_ended=False)
+    context = {
+        'users': users,
+        'buses': buses,
+        'owners': owners,
+        'routes': routes,
+        'stopages': stopages,
+        'roads': roads,
+        'cards': cards,
+        'trips': trips,
+    }
+    return render(request, "app/api_tester.html", context)
 
 

@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from app.models import Trip, Ticket, Schedule, Route, Card, ImgNow, User, Owner, Stopage, RouteStopage
 import json
 from collections import defaultdict
-
 def analytics_dashboard(request):
     """Main analytics dashboard view"""
     return render(request, 'app/analytics.html')
@@ -94,14 +93,15 @@ def get_total_analytics(start_date, end_date):
     # Bus performance (Users with role 'bus')
     bus_data = []
     for bus in User.objects.filter(role='bus'):
-        bus_trips = trips.filter(bus=bus)
-        bus_tickets = tickets.filter(trip__bus=bus)
+        # Trip.bus field contains bus ID as string, so filter by ID
+        bus_trips = trips.filter(bus=bus.id)
+        bus_tickets = tickets.filter(trip__bus=bus.id)
         bus_revenue = float(bus_tickets.aggregate(Sum('price'))['price__sum'] or 0)
         
         bus_data.append({
             'bus_id': bus.id,
-            'bus_name': bus.id,  # Using ID as name since User model doesn't have separate name field
-            'bus_number': bus.id,
+            'bus_name': str(bus.id),  # Using ID as name since User model doesn't have separate name field
+            'bus_number': str(bus.id),
             'trips': bus_trips.count(),
             'tickets': bus_tickets.count(),
             'revenue': bus_revenue
@@ -109,15 +109,22 @@ def get_total_analytics(start_date, end_date):
     
     # Daily revenue trend (last 30 days)
     daily_revenue = []
+    # Use today's date if end_date is None
+    reference_date = end_date if end_date else timezone.now().date()
+    
     for i in range(30):
-        date = end_date - timedelta(days=i)
+        date = reference_date - timedelta(days=i)
+        day_trips = trips.filter(date=date)
         day_tickets = tickets.filter(trip__date=date)
         day_revenue = float(day_tickets.aggregate(Sum('price'))['price__sum'] or 0)
         
         daily_revenue.append({
             'date': date.strftime('%Y-%m-%d'),
+            'day_name': date.strftime('%A'),
+            'trips': day_trips.count(),
             'revenue': day_revenue,
-            'tickets': day_tickets.count()
+            'tickets': day_tickets.count(),
+            'avg_ticket_price': float(day_tickets.aggregate(Avg('price'))['price__avg'] or 0)
         })
     
     # Hourly distribution based on trip start times (since tickets don't have time field)
@@ -220,7 +227,7 @@ def get_bus_analytics(bus_id, start_date, end_date):
         return {'error': 'Bus not found'}
     
     # Filter by date range
-    trips_filter = Q(bus=bus)
+    trips_filter = Q(bus=bus.id)  # Use bus.id since Trip.bus is a string field
     if start_date:
         trips_filter &= Q(date__gte=start_date)
     if end_date:

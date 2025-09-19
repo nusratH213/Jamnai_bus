@@ -1,66 +1,269 @@
 {% extends 'app/head.html' %}
-{% block title %}Manager Dashboard{% endblock %}
-{% block navbar_heading %}Manager Dashboard{% endblock %}
+{% block title %}Bus Manager Dashboard{% endblock %}
+{% block navbar_heading %}🚌 Bus Manager Dashboard{% endblock %}
 {% block content %}
-<style>
-    body { font-family: Arial, sans-serif; background: #e8f5e9; padding: 20px; }
-    .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
-    button { padding: 10px; margin: 10px 5px 0 0; border-radius: 5px; border: 1px solid #ccc; background: #28a745; color: white; cursor: pointer; }
-    button:hover { background: #1e7e34; }
-</style>
 
 <div class="container">
-    <h1>Bus Manager Dashboard</h1>
-
-    <div id="status">
-        <p>⏳ Loading current stopage...</p>
+    <div class="text-center mb-20">
+        <h1>🚌 Bus Operations</h1>
+        <p style="font-size: 18px; color: var(--medium-gray); margin-bottom: 30px;">
+            Manage your bus journey and stopage updates
+        </p>
     </div>
 
-    <div id="action-buttons" style="margin-top:10px;"></div>
-    <div id="message" style="margin-top:10px; color: green;"></div>
+    <!-- Status Display -->
+    <div class="card card-primary">
+        <h3>📍 Current Status</h3>
+        <div id="status" style="font-size: 18px; padding: 20px; text-align: center; background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); border-radius: 12px; margin: 15px 0;">
+            <div style="font-size: 48px; margin-bottom: 15px;">⏳</div>
+            <p style="margin: 0; font-weight: 500;">Loading current stopage...</p>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="card">
+        <h3>⚡ Quick Actions</h3>
+        <div id="action-buttons" style="display: flex; gap: 15px; justify-content: center; margin-top: 20px; flex-wrap: wrap;">
+            <!-- Buttons will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Message Display -->
+    <div id="message-container" style="display: none;">
+        <div id="message" class="card"></div>
+    </div>
+
+    <!-- Journey Information -->
+    <div class="card">
+        <h3>🗺️ Journey Information</h3>
+        <div id="journey-info">
+            <div style="text-align: center; padding: 30px; color: var(--medium-gray);">
+                <div style="font-size: 48px; margin-bottom: 15px;">🚌</div>
+                <p>No active journey</p>
+                <small>Journey details will appear here when owner starts a trip</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Log -->
+    <div class="card">
+        <h3>📋 Recent Activity</h3>
+        <div id="activity-log">
+            <div style="text-align: center; padding: 30px; color: var(--medium-gray);">
+                <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                <p>No recent activity</p>
+                <small>Activity logs will appear here as you update stopages</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Actions -->
+    <div class="card card-warning">
+        <h3>🚨 Emergency & Support</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
+            <button onclick="reportIssue()" class="btn-danger" style="height: 50px;">
+                🚨 Report Issue
+            </button>
+            <button onclick="contactSupport()" class="btn-warning" style="height: 50px;">
+                📞 Contact Support
+            </button>
+            <button onclick="refreshStatus()" class="btn-secondary" style="height: 50px;">
+                🔄 Refresh Status
+            </button>
+        </div>
+    </div>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const statusDiv = document.getElementById("status");
     const actionDiv = document.getElementById("action-buttons");
-    const messageDiv = document.getElementById("message");
+    const journeyInfo = document.getElementById("journey-info");
+    const activityLog = document.getElementById("activity-log");
 
     let currentStopage = null;
     let stat = null;
+    let activityHistory = [];
 
     function fetchCurrentStopage() {
-        statusDiv.innerHTML = "⏳ Loading current stopage...";
+        // Show loading state
+        statusDiv.innerHTML = `
+            <div style="font-size: 48px; margin-bottom: 15px;">⏳</div>
+            <p style="margin: 0; font-weight: 500;">Loading current stopage...</p>
+        `;
         actionDiv.innerHTML = "";
-        messageDiv.innerText = "";
 
         fetch("/getstop/")
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
             .then(data => {
                 if (data.next_stopage) {
                     currentStopage = data.next_stopage;
                     stat = data.stat;
+                    
                     console.log("Current Stopage:", currentStopage, "Status:", stat);
-                    statusDiv.innerHTML = `<strong>Current Stopage:</strong> ${currentStopage}`;
+                    
+                    // Update status display
+                    statusDiv.innerHTML = `
+                        <div style="font-size: 48px; margin-bottom: 15px;">📍</div>
+                        <p style="margin: 0; font-weight: bold; font-size: 20px; color: var(--primary-color);">
+                            Current Stopage: ${currentStopage}
+                        </p>
+                        <p style="margin: 10px 0 0 0; font-size: 14px; color: var(--medium-gray);">
+                            Status: ${stat == 1 ? 'Arrived ✅' : 'In Transit 🚌'}
+                        </p>
+                    `;
+                    
+                    // Update action buttons based on status
                     if(stat == 1) {
-                    actionDiv.innerHTML = `
-                        <button onclick="confirmAction(0)">📤 Confirm Departure</button>
-                    `;
+                        actionDiv.innerHTML = `
+                            <button onclick="confirmAction(0)" class="btn-primary" style="padding: 15px 30px; font-size: 16px;">
+                                📤 Confirm Departure
+                            </button>
+                        `;
                     } else {
-                    actionDiv.innerHTML = `
-                        <button onclick="confirmAction(1)">✅ Confirm Arrival</button>
-                        <button onclick="confirmAction(0)">📤 Confirm Departure</button>
-                    `;
+                        actionDiv.innerHTML = `
+                            <button onclick="confirmAction(1)" class="btn-success" style="padding: 15px 30px; font-size: 16px; margin-right: 10px;">
+                                ✅ Confirm Arrival
+                            </button>
+                            <button onclick="confirmAction(0)" class="btn-primary" style="padding: 15px 30px; font-size: 16px;">
+                                📤 Confirm Departure
+                            </button>
+                        `;
                     }
+                    
+                    // Update journey info
+                    updateJourneyInfo(data);
+                    
                 } else {
-                    statusDiv.innerHTML = data.message || "Wait until owner starts the journey.";
+                    statusDiv.innerHTML = `
+                        <div style="font-size: 48px; margin-bottom: 15px;">⏸️</div>
+                        <p style="margin: 0; font-weight: 500; color: var(--warning-color);">
+                            ${data.message || "Wait until owner starts the journey"}
+                        </p>
+                    `;
                     currentStopage = null;
+                    
+                    // Clear journey info
+                    journeyInfo.innerHTML = `
+                        <div style="text-align: center; padding: 30px; color: var(--medium-gray);">
+                            <div style="font-size: 48px; margin-bottom: 15px;">⏸️</div>
+                            <p>No active journey</p>
+                            <small>Journey details will appear here when owner starts a trip</small>
+                        </div>
+                    `;
                 }
+            })
+            .catch(error => {
+                console.error('Error fetching stopage:', error);
+                statusDiv.innerHTML = `
+                    <div style="font-size: 48px; margin-bottom: 15px;">❌</div>
+                    <p style="margin: 0; font-weight: 500; color: var(--danger-color);">
+                        Error loading status. Please refresh the page.
+                    </p>
+                `;
+                showMessage('❌ Error loading current status. Please try again.', 'error');
             });
     }
 
+    function updateJourneyInfo(data) {
+        // This would be populated with additional journey data if available
+        journeyInfo.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div style="text-align: center; padding: 20px; background: rgba(102, 126, 234, 0.1); border-radius: 12px;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">📍</div>
+                    <div style="font-weight: bold; margin-bottom: 5px;">Current Stop</div>
+                    <div style="color: var(--primary-color); font-weight: 500;">${currentStopage}</div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: rgba(76, 175, 80, 0.1); border-radius: 12px;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">${stat == 1 ? '✅' : '🚌'}</div>
+                    <div style="font-weight: bold; margin-bottom: 5px;">Status</div>
+                    <div style="color: ${stat == 1 ? 'var(--success-color)' : 'var(--warning-color)'}; font-weight: 500;">
+                        ${stat == 1 ? 'Arrived' : 'In Transit'}
+                    </div>
+                </div>
+                <div style="text-align: center; padding: 20px; background: rgba(255, 193, 7, 0.1); border-radius: 12px;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">🕒</div>
+                    <div style="font-weight: bold; margin-bottom: 5px;">Last Update</div>
+                    <div style="color: var(--warning-color); font-weight: 500;">${new Date().toLocaleTimeString()}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    function addToActivityLog(action, type = 'info') {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
+        const activity = {
+            action,
+            time: timeStr,
+            type
+        };
+        
+        activityHistory.unshift(activity);
+        
+        // Keep only last 10 activities
+        if (activityHistory.length > 10) {
+            activityHistory = activityHistory.slice(0, 10);
+        }
+        
+        updateActivityDisplay();
+    }
+
+    function updateActivityDisplay() {
+        if (activityHistory.length === 0) {
+            activityLog.innerHTML = `
+                <div style="text-align: center; padding: 30px; color: var(--medium-gray);">
+                    <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                    <p>No recent activity</p>
+                    <small>Activity logs will appear here as you update stopages</small>
+                </div>
+            `;
+            return;
+        }
+        
+        const activityHTML = activityHistory.map(activity => {
+            const iconMap = {
+                'success': '✅',
+                'error': '❌',
+                'info': 'ℹ️',
+                'warning': '⚠️'
+            };
+            
+            const colorMap = {
+                'success': 'var(--success-color)',
+                'error': 'var(--danger-color)',
+                'info': 'var(--info-color)',
+                'warning': 'var(--warning-color)'
+            };
+            
+            return `
+                <div style="padding: 15px; background: rgba(102, 126, 234, 0.05); border-left: 4px solid ${colorMap[activity.type]}; margin-bottom: 10px; border-radius: 0 8px 8px 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>${iconMap[activity.type]} ${activity.action}</span>
+                        <small style="color: var(--medium-gray);">${activity.time}</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        activityLog.innerHTML = activityHTML;
+    }
+
     window.confirmAction = function (arriveFlag) {
-        if (!currentStopage) return;
+        if (!currentStopage) {
+            showMessage('❌ No current stopage available for update.', 'error');
+            return;
+        }
+
+        const actionText = arriveFlag ? 'arrival' : 'departure';
+        const buttons = actionDiv.querySelectorAll('button');
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = `⏳ Processing ${actionText}...`;
+        });
 
         fetch("/updatestop/", {
             method: "POST",
@@ -74,22 +277,82 @@ document.addEventListener("DOMContentLoaded", function () {
                 arrive: arriveFlag
             })
         })
-        .then(res => res.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.json();
+        })
         .then(data => {
             if (data.error) {
-                messageDiv.style.color = "red";
-                messageDiv.innerText = data.error;
+                showMessage(`❌ ${data.error}`, 'error');
+                addToActivityLog(`Failed to confirm ${actionText} at ${currentStopage}`, 'error');
             } else {
-                messageDiv.style.color = "green";
-                messageDiv.innerText = data.message;
-                    setTimeout(fetchCurrentStopage, 1000);
+                showMessage(`✅ ${data.message}`, 'success');
+                addToActivityLog(`Confirmed ${actionText} at ${currentStopage}`, 'success');
+                setTimeout(fetchCurrentStopage, 1000);
             }
-            
+        })
+        .catch(error => {
+            console.error('Error updating stopage:', error);
+            showMessage(`❌ Error confirming ${actionText}. Please try again.`, 'error');
+            addToActivityLog(`Error confirming ${actionText} at ${currentStopage}`, 'error');
+        })
+        .finally(() => {
+            // Re-enable buttons after some time if they're still there
+            setTimeout(() => {
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                });
+            }, 2000);
         });
     };
 
     // Load on page ready
     fetchCurrentStopage();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(fetchCurrentStopage, 30000);
 });
+
+function showMessage(message, type) {
+    const container = document.getElementById("message-container");
+    const messageDiv = document.getElementById("message");
+    
+    // Set message content
+    messageDiv.innerHTML = message;
+    
+    // Set appropriate styling based on type
+    if (type === 'success') {
+        messageDiv.className = 'card card-success';
+    } else if (type === 'error') {
+        messageDiv.className = 'card card-danger';
+    } else if (type === 'warning') {
+        messageDiv.className = 'card card-warning';
+    } else {
+        messageDiv.className = 'card card-info';
+    }
+    
+    // Show the message
+    container.style.display = "block";
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        container.style.display = "none";
+    }, 5000);
+}
+
+function reportIssue() {
+    showMessage('🚨 Issue reporting functionality coming soon! Please contact support for immediate assistance.', 'warning');
+}
+
+function contactSupport() {
+    showMessage('📞 Support contact: +880-XXX-XXXXXX | Email: support@jamnaibus.com', 'info');
+}
+
+function refreshStatus() {
+    showMessage('🔄 Refreshing status...', 'info');
+    fetchCurrentStopage();
+}
 </script>
+
 {% endblock %}
