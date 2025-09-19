@@ -6,18 +6,52 @@ from datetime import datetime, timedelta
 from app.models import Trip, Ticket, Schedule, Route, Card, ImgNow, User, Owner, Stopage, RouteStopage
 import json
 from collections import defaultdict
+import pytz
+
+# Import enhanced analytics functions
+from app.enhanced_analytics import (
+    get_hourly_analytics_with_time_tracking,
+    get_daily_analytics_with_time_tracking,
+    get_weekly_analytics_with_time_tracking,
+    get_route_time_analytics,
+    get_journey_duration_analytics
+)
+
+def get_bangladesh_time():
+    """Helper function to get current time in Bangladesh timezone as naive datetime"""
+    bd_timezone = pytz.timezone('Asia/Dhaka')
+    utc_now = datetime.utcnow()
+    utc_aware = pytz.utc.localize(utc_now)
+    bd_time = utc_aware.astimezone(bd_timezone)
+    return bd_time.replace(tzinfo=None)  # Return naive datetime in BD time
 def analytics_dashboard(request):
     """Main analytics dashboard view"""
     return render(request, 'app/analytics.html')
+
+def enhanced_analytics_dashboard(request):
+    """Enhanced analytics dashboard with time tracking"""
+    return render(request, 'enhanced_analytics_dashboard.html')
 
 def analytics_api(request):
     """API endpoint for analytics data"""
     filter_type = request.GET.get('filter', 'total')  # total, route, bus, day, week, month
     filter_value = request.GET.get('value', '')
     time_period = request.GET.get('period', 'all')  # all, today, week, month, year
+    start_time_str = request.GET.get('start_time', '')  # Format: HH:MM
+    end_time_str = request.GET.get('end_time', '')    # Format: HH:MM
     
-    # Get date range based on time period
-    end_date = timezone.now().date()
+    # Parse time intervals if provided
+    start_time = None
+    end_time = None
+    if start_time_str and end_time_str:
+        try:
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
+        except ValueError:
+            return JsonResponse({'error': 'Invalid time format. Use HH:MM'}, status=400)
+    
+    # Get date range based on time period (using Bangladesh time)
+    end_date = get_bangladesh_time().date()
     if time_period == 'today':
         start_date = end_date
     elif time_period == 'week':
@@ -35,19 +69,33 @@ def analytics_api(request):
         if filter_type == 'total':
             data = get_total_analytics(start_date, end_date)
         elif filter_type == 'route':
-            data = get_route_analytics(filter_value, start_date, end_date)
+            data = get_route_analytics(filter_value, start_date, end_date, start_time, end_time)
         elif filter_type == 'bus':
             data = get_bus_analytics(filter_value, start_date, end_date)
         elif filter_type == 'daily':
             data = get_daily_analytics(start_date, end_date)
         elif filter_type == 'hourly':
             data = get_hourly_analytics(start_date, end_date)
+        elif filter_type == 'enhanced_hourly':
+            data = get_hourly_analytics_with_time_tracking(start_date, end_date)
+        elif filter_type == 'enhanced_daily':
+            data = get_daily_analytics_with_time_tracking(start_date, end_date)
+        elif filter_type == 'enhanced_weekly':
+            data = get_weekly_analytics_with_time_tracking()
+        elif filter_type == 'journey_duration':
+            data = get_journey_duration_analytics(start_date, end_date)
+        elif filter_type == 'route_time':
+            data = get_route_time_analytics(filter_value, start_date, end_date)
         else:
             data = get_total_analytics(start_date, end_date)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
     
-    return JsonResponse(data)
+    # Handle list responses (like hourly data) with safe=False
+    if isinstance(data, list):
+        return JsonResponse(data, safe=False)
+    else:
+        return JsonResponse(data)
 
 def get_total_analytics(start_date, end_date):
     """Get total system analytics"""
@@ -167,8 +215,8 @@ def get_total_analytics(start_date, end_date):
         'stopage_congestion': stopage_congestion
     }
 
-def get_route_analytics(route_id, start_date, end_date):
-    """Get analytics for a specific route"""
+def get_route_analytics(route_id, start_date, end_date, start_time=None, end_time=None):
+    """Get analytics for a specific route with optional time interval filtering"""
     try:
         route = Route.objects.get(route_id=route_id)
     except Route.DoesNotExist:
@@ -183,6 +231,13 @@ def get_route_analytics(route_id, start_date, end_date):
     
     trips = Trip.objects.filter(trips_filter)
     tickets = Ticket.objects.filter(trip__in=trips)
+    
+    # Filter tickets by boarding time if time interval is provided
+    if start_time and end_time:
+        tickets = tickets.filter(
+            in_ticket_time__time__gte=start_time,
+            in_ticket_time__time__lte=end_time
+        )
     
     # Daily performance for this route
     daily_performance = []
@@ -199,8 +254,19 @@ def get_route_analytics(route_id, start_date, end_date):
             'revenue': day_revenue
         })
     
-    # Stopage congestion analysis for this specific route
-    route_stopage_congestion = get_route_stopage_analysis(route, start_date, end_date)
+    # Stopage congestion analysis for this specific route with time filtering
+    route_stopage_congestion = get_route_stopage_analysis(route, start_date, end_date, start_time, end_time)
+    
+    # Time interval summary if time filtering is applied
+    time_interval_info = None
+    if start_time and end_time:
+        time_interval_info = {
+            'start_time': start_time.strftime('%H:%M'),
+            'end_time': end_time.strftime('%H:%M'),
+            'interval_trips': trips.count(),
+            'interval_tickets': tickets.count(),
+            'interval_revenue': float(tickets.aggregate(Sum('price'))['price__sum'] or 0)
+        }
     
     return {
         'route_info': {
@@ -216,7 +282,8 @@ def get_route_analytics(route_id, start_date, end_date):
             'avg_ticket_price': float(tickets.aggregate(Avg('price'))['price__avg'] or 0)
         },
         'daily_performance': daily_performance,
-        'stopage_congestion': route_stopage_congestion
+        'stopage_congestion': route_stopage_congestion,
+        'time_interval': time_interval_info
     }
 
 def get_bus_analytics(bus_id, start_date, end_date):
@@ -368,6 +435,17 @@ def get_filter_options(request):
     buses = [{'id': b.id, 'name': f'{b.id}'} 
              for b in User.objects.filter(role='bus')]
     
+    # Predefined time intervals
+    time_intervals = [
+        {'id': 'all_day', 'name': 'All Day', 'start': '00:00', 'end': '23:59'},
+        {'id': 'morning_rush', 'name': 'Morning Rush (7:00 AM - 10:00 AM)', 'start': '07:00', 'end': '10:00'},
+        {'id': 'midday', 'name': 'Midday (11:00 AM - 1:00 PM)', 'start': '11:00', 'end': '13:00'},
+        {'id': 'afternoon', 'name': 'Afternoon (2:00 PM - 5:00 PM)', 'start': '14:00', 'end': '17:00'},
+        {'id': 'evening_rush', 'name': 'Evening Rush (5:00 PM - 8:00 PM)', 'start': '17:00', 'end': '20:00'},
+        {'id': 'night', 'name': 'Night (8:00 PM - 11:00 PM)', 'start': '20:00', 'end': '23:00'},
+        {'id': 'custom', 'name': 'Custom Time Range', 'start': '', 'end': ''}
+    ]
+    
     return JsonResponse({
         'routes': routes,
         'buses': buses,
@@ -377,17 +455,27 @@ def get_filter_options(request):
             {'id': 'month', 'name': 'Last 30 Days'},
             {'id': 'year', 'name': 'Last Year'},
             {'id': 'all', 'name': 'All Time'}
-        ]
+        ],
+        'time_intervals': time_intervals
     })
 
-def get_route_stopage_analysis(route, start_date, end_date):
-    """Analyze congestion at each stopage for a specific route"""
+def get_route_stopage_analysis(route, start_date, end_date, start_time=None, end_time=None):
+    """Analyze congestion at each stopage for a specific route with optional time filtering"""
     # Filter tickets by route and date range
     tickets_filter = Q(trip__route=route)
     if start_date:
         tickets_filter &= Q(trip__date__gte=start_date)
     if end_date:
         tickets_filter &= Q(trip__date__lte=end_date)
+    
+    # Add time filtering if provided - use ticket boarding time instead of trip start time
+    if start_time and end_time:
+        # Filter by actual boarding time (in_ticket_time) when time range is specified
+        tickets_filter &= Q(
+            in_ticket_time__time__gte=start_time, 
+            in_ticket_time__time__lte=end_time,
+            in_ticket_time__isnull=False
+        )
     
     tickets = Ticket.objects.filter(tickets_filter)
     

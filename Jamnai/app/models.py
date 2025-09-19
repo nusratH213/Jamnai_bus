@@ -68,6 +68,8 @@ class Trip(models.Model):
     available_seats = models.PositiveIntegerField(default=50)  # assuming a bus has 50 seats
     total_seats = models.PositiveIntegerField(default=50)  # total seats in the bus
     start_time = models.TimeField(null=True, blank=True)  # trip start time
+    end_time = models.TimeField(null=True, blank=True)  # trip end time
+    
     def __str__(self):
         status = 'Ended' if self.is_ended else 'Ongoing'
         return f"Trip {self.trip_id} - Bus {self.bus} on Route {self.route} - {status}"
@@ -98,6 +100,9 @@ class Ticket(models.Model):
     start_stopage = models.ForeignKey(Stopage, on_delete=models.CASCADE, related_name='ticket_start')
     end_stopage = models.ForeignKey(Stopage, on_delete=models.CASCADE, related_name='ticket_end', null=True, blank=True)
     price = models.DecimalField(max_digits=7, decimal_places=2, default=0.00)
+    in_ticket_time = models.DateTimeField(null=True, blank=True, help_text="Time when passenger boarded the bus")
+    out_ticket_time = models.DateTimeField(null=True, blank=True, help_text="Time when passenger alighted from the bus")
+    is_completed = models.BooleanField(default=False, help_text="Whether the journey is completed")
 
     def __str__(self):
         return f"Ticket for Card {self.card.card_id} on Trip {self.trip.trip_id}: {self.start_stopage} ➝ {self.end_stopage}"

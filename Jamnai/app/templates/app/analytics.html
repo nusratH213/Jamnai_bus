@@ -147,6 +147,38 @@
                         <option value="all">All Time</option>
                     </select>
                 </div>
+            </div>
+            
+            <!-- Time Interval Controls (only for route analytics) -->
+            <div class="row mb-3" id="timeIntervalControls" style="display: none;">
+                <div class="col-md-3">
+                    <label for="timeInterval" class="form-label">Time Interval</label>
+                    <select class="form-select" id="timeInterval" onchange="handleTimeIntervalChange()">
+                        <option value="all_day">All Day</option>
+                        <option value="morning_rush">Morning Rush (7:00 AM - 10:00 AM)</option>
+                        <option value="midday">Midday (11:00 AM - 1:00 PM)</option>
+                        <option value="afternoon">Afternoon (2:00 PM - 5:00 PM)</option>
+                        <option value="evening_rush">Evening Rush (5:00 PM - 8:00 PM)</option>
+                        <option value="night">Night (8:00 PM - 11:00 PM)</option>
+                        <option value="custom">Custom Time Range</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="startTime" class="form-label">Start Time</label>
+                    <input type="time" class="form-control" id="startTime" disabled>
+                </div>
+                <div class="col-md-2">
+                    <label for="endTime" class="form-label">End Time</label>
+                    <input type="time" class="form-control" id="endTime" disabled>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-info w-100" onclick="loadAnalytics()" id="timeAnalyticsBtn">
+                        <i class="fas fa-clock"></i> Apply Time Filter
+                    </button>
+                </div>
+            </div>
+            
+            <div class="row mb-3">
                 <div class="col-md-3 d-flex align-items-end">
                     <button class="btn btn-primary w-100" onclick="loadAnalytics()">
                         <i class="fas fa-chart-line"></i> Generate Analytics
@@ -397,6 +429,15 @@
 
         function loadSpecificFilters(filterType) {
             const filterValueSelect = document.getElementById('filterValue');
+            const timeIntervalControls = document.getElementById('timeIntervalControls');
+            
+            // Show/hide time interval controls based on filter type
+            if (filterType === 'route') {
+                timeIntervalControls.style.display = 'block';
+            } else {
+                timeIntervalControls.style.display = 'none';
+            }
+            
             let options = [];
             
             if (filterType === 'route' && window.filterOptions) {
@@ -410,11 +451,55 @@
                 filterValueSelect.innerHTML += `<option value="${option.id}">${option.name}</option>`;
             });
         }
+        
+        function handleTimeIntervalChange() {
+            const timeInterval = document.getElementById('timeInterval').value;
+            const startTimeInput = document.getElementById('startTime');
+            const endTimeInput = document.getElementById('endTime');
+            
+            // Predefined time intervals
+            const intervals = {
+                'all_day': { start: '00:00', end: '23:59' },
+                'morning_rush': { start: '07:00', end: '10:00' },
+                'midday': { start: '11:00', end: '13:00' },
+                'afternoon': { start: '14:00', end: '17:00' },
+                'evening_rush': { start: '17:00', end: '20:00' },
+                'night': { start: '20:00', end: '23:00' }
+            };
+            
+            if (timeInterval === 'custom') {
+                startTimeInput.disabled = false;
+                endTimeInput.disabled = false;
+                startTimeInput.value = '';
+                endTimeInput.value = '';
+            } else if (intervals[timeInterval]) {
+                startTimeInput.disabled = true;
+                endTimeInput.disabled = true;
+                startTimeInput.value = intervals[timeInterval].start;
+                endTimeInput.value = intervals[timeInterval].end;
+            }
+        }
 
         async function loadAnalytics() {
             const filterType = document.getElementById('filterType').value;
             const filterValue = document.getElementById('filterValue').value;
             const timePeriod = document.getElementById('timePeriod').value;
+            
+            // Get time interval parameters for route analytics
+            let startTime = '';
+            let endTime = '';
+            if (filterType === 'route') {
+                const startTimeInput = document.getElementById('startTime');
+                const endTimeInput = document.getElementById('endTime');
+                startTime = startTimeInput.value;
+                endTime = endTimeInput.value;
+                
+                // Validate time interval if specified
+                if ((startTime && !endTime) || (!startTime && endTime)) {
+                    alert('Please specify both start and end times for time interval filtering.');
+                    return;
+                }
+            }
             
             // Validate that a specific value is selected for route/bus filters
             if ((filterType === 'route' || filterType === 'bus') && !filterValue) {
@@ -432,6 +517,12 @@
                     value: filterValue || '',
                     period: timePeriod
                 });
+                
+                // Add time parameters if specified
+                if (startTime && endTime) {
+                    params.append('start_time', startTime);
+                    params.append('end_time', endTime);
+                }
                 
                 const response = await fetch(`/analytics/api/?${params}`);
                 const data = await response.json();
@@ -482,7 +573,7 @@
             const routeVisual = document.getElementById('routeVisual');
             if (filterType === 'route' && data.route_info) {
                 routeVisual.style.display = 'block';
-                renderRouteVisualization(data.route_info, data.stopage_congestion || []);
+                renderRouteVisualization(data.route_info, data.stopage_congestion || [], data.time_interval);
             } else {
                 routeVisual.style.display = 'none';
             }
@@ -684,13 +775,32 @@
             renderStopageChart(data.stopage_congestion || []);
         }
 
-        function renderRouteVisualization(routeInfo, stopageData) {
+        function renderRouteVisualization(routeInfo, stopageData, timeInterval = null) {
             const container = document.getElementById('routeVisualization');
             
             // Create visual route representation
             let routeHtml = `
                 <div class="route-visualization">
                     <h6 class="mb-3">${routeInfo.name}</h6>
+            `;
+            
+            // Add time interval information if available
+            if (timeInterval) {
+                routeHtml += `
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-clock"></i> 
+                        <strong>Time Interval:</strong> ${timeInterval.start_time} - ${timeInterval.end_time}
+                        <br>
+                        <small>
+                            Trips: ${timeInterval.interval_trips} | 
+                            Tickets: ${timeInterval.interval_tickets} | 
+                            Revenue: ৳${timeInterval.interval_revenue.toLocaleString()}
+                        </small>
+                    </div>
+                `;
+            }
+            
+            routeHtml += `
                     <div class="route-line d-flex align-items-center justify-content-between position-relative">
             `;
             
@@ -734,7 +844,9 @@
                             <div class="stopage-stats mt-1">
                                 <small class="text-muted">
                                     ↗️ ${stopage.boarding_count} | ↙️ ${stopage.alighting_count}
+                                    ${stopage.time_filtered ? `<br>⏰ Avg: ${stopage.avg_arrival_time}` : ''}
                                 </small>
+                                ${stopage.time_filtered ? `<span class="badge bg-info badge-sm">Time Filtered</span>` : ''}
                             </div>
                         </div>
                     `;

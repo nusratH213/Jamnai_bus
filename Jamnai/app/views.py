@@ -47,37 +47,35 @@ from django.utils import timezone
 from datetime import datetime, time, timedelta
 import pytz
 
+def get_bangladesh_time():
+    """Helper function to get current time in Bangladesh timezone as naive datetime"""
+    bd_timezone = pytz.timezone('Asia/Dhaka')
+    utc_now = datetime.utcnow()
+    utc_aware = pytz.utc.localize(utc_now)
+    bd_time = utc_aware.astimezone(bd_timezone)
+    return bd_time.replace(tzinfo=None)  # Return naive datetime in BD time
+
+def get_bangladesh_datetime_naive():
+    """Get Bangladesh time as naive datetime (for database storage)"""
+    return get_bangladesh_time()
+
 def search_routes(request):
     routes_with_path = []
     buses_info = []
-    
-    # Get user's timezone from request (default to Asia/Dhaka)
-    user_timezone_str = request.POST.get('user_timezone', 'Asia/Dhaka')
-    try:
-        user_timezone = pytz.timezone(user_timezone_str)
-    except:
-        # Fallback to default timezone
-        user_timezone = pytz.timezone('Asia/Dhaka')
-    
-    print(f"Using timezone: {user_timezone_str}")
 
     if request.method == "POST":
         source = request.POST.get("source", "").strip().lower()
         destination = request.POST.get("destination", "").strip().lower()
         
-        # Get current time in user's timezone
-        current_time_utc = timezone.now()
-        current_time_user = current_time_utc.astimezone(user_timezone)
-        print(f"Current time in user timezone ({user_timezone_str}): {current_time_user}")
+        # Get current time in Bangladesh timezone (naive)
+        current_time_bd = get_bangladesh_time()
+        print(f"Current time in Bangladesh: {current_time_bd}")
         
         for route in Route.objects.all():
             route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
             stopage_names = [rs.stopage.name.strip().lower() for rs in route_stopages]
             if source in stopage_names and destination in stopage_names:
                 source_index = stopage_names.index(source)+1
-                # print(stopage_names)
-                # for i in stopage_names:
-                #     print(f"Stopage: {i}: {stopage_names.index(i)}, Order: {RouteStopage.objects.get(route=route, stopage__name=i).order}")
                 dest_index = stopage_names.index(destination)+1
 
                 if source_index < dest_index:
@@ -99,7 +97,7 @@ def search_routes(request):
                         print(f"Schedules for trip {trip.trip_id}: {schedules}")
                         last_schedule = None
                         for sched in schedules:
-                            if (sched.departure_time and sched.departure_time < current_time_user.time()) or not sched.departure_time:
+                            if (sched.departure_time and sched.departure_time < current_time_bd.time()) or not sched.departure_time:
                                 last_schedule = sched
                             else:
                                 break
@@ -119,9 +117,9 @@ def search_routes(request):
                                     # Calculate estimated time using distance
                                     if str(last_schedule.stopage.name).lower() == str(source).lower():
                                         # Bus is at the source station
-                                        current_local_time = current_time_user
+                                        current_local_time = current_time_bd
                                         estimated_time = current_local_time.strftime("%H:%M")
-                                        print(f"Bus at source - Current user time: {current_local_time}, formatted: {estimated_time}")
+                                        print(f"Bus at source - Current Bangladesh time: {current_local_time}, formatted: {estimated_time}")
                                     else:
                                         try:
                                             # Get cumulative distances
@@ -134,7 +132,7 @@ def search_routes(request):
                                             print(f"Distance calculation: current={current_stopage_route.distance_from_last_stopage}, source={source_stopage_route.distance_from_last_stopage}, to_travel={distance_to_travel}")
                                             
                                             if distance_to_travel <= 0:
-                                                current_local_time = current_time_user
+                                                current_local_time = current_time_bd
                                                 estimated_time = current_local_time.strftime("%H:%M")
                                                 print(f"Distance <= 0 - Current user time: {current_local_time}, formatted: {estimated_time}")
                                             else:
@@ -143,14 +141,13 @@ def search_routes(request):
                                                 
                                                 if last_schedule.departure_time:
                                                     # Bus has departed, add travel time to departure time
-                                                    departure_datetime = datetime.combine(timezone.localdate(), last_schedule.departure_time)
-                                                    departure_datetime_user = user_timezone.localize(departure_datetime.replace(tzinfo=None))
-                                                    estimated_arrival = departure_datetime_user + timedelta(minutes=travel_time_minutes)
+                                                    departure_datetime = datetime.combine(current_time_bd.date(), last_schedule.departure_time)
+                                                    estimated_arrival = departure_datetime + timedelta(minutes=travel_time_minutes)
                                                     estimated_time = estimated_arrival.strftime("%H:%M")
-                                                    print(f"Departed bus - Departure: {departure_datetime_user}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
+                                                    print(f"Departed bus - Departure: {departure_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
                                                 elif current_location_schedule:
                                                     # Bus is currently at station, estimate from now
-                                                    current_datetime = current_time_user
+                                                    current_datetime = current_time_bd
                                                     estimated_arrival = current_datetime + timedelta(minutes=travel_time_minutes)
                                                     estimated_time = estimated_arrival.strftime("%H:%M")
                                                     print(f"At station - Current: {current_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
@@ -174,7 +171,7 @@ def search_routes(request):
                                         'last_stopage': last_schedule.stopage.name,
                                         'last_departure': big.departure_time.strftime("%H:%M") if big and big.departure_time else "Not Departed",
                                         'estimated_time': estimated_time if big else "Infinity", 
-                                        'updated_at': current_time_user
+                                        'updated_at': current_time_bd
                                     })
                                 # print(f"Bus {trip.bus.id} last stopage: {last_schedule.stopage.name if last_schedule else 'N/A'}")
                             except RouteStopage.DoesNotExist:
@@ -215,6 +212,9 @@ def f(request):
             status=400
         )
 
+    # Always use Bangladesh timezone
+    bd_timezone = pytz.timezone('Asia/Dhaka')
+
     print(f"Received request for bus {bus_id}, on_flag: {on_flag}, card_id: {card_id}")
 
     if on_flag not in [1, 0, '1', '0', "1", "0"]:
@@ -224,7 +224,7 @@ def f(request):
             status=400
         )
 
-    today = timezone.localdate()
+    today = get_bangladesh_time().date()  # Use Bangladesh date (naive)
     try:
         trip = Trip.objects.get(bus=bus_id, is_ended=False)
     except Trip.DoesNotExist:
@@ -261,12 +261,17 @@ def f(request):
                 status=404
             )
 
+        # Get current time in Bangladesh timezone (naive)
+        current_time_bd = get_bangladesh_time()
+
         ticket = Ticket.objects.create(
             trip=trip,
             card=card,
             start_stopage=current_stopage,
             end_stopage=None,
-            price=0
+            price=0,
+            in_ticket_time=current_time_bd,  # Set boarding time in Bangladesh timezone
+            is_completed=False  # Journey just started
         )
         trip.available_seats -= 1
         trip.save(update_fields=["available_seats"])
@@ -307,8 +312,14 @@ def f(request):
                 content_type="application/json",
                 status=404
             )
+        
+        # Get current time in Bangladesh timezone for alighting (naive)
+        current_time_bd = get_bangladesh_time()
+        
         ticket.end_stopage = current_stopage
-        ticket.save(update_fields=["end_stopage"])
+        ticket.out_ticket_time = current_time_bd  # Set alighting time in Bangladesh timezone
+        ticket.is_completed = True  # Mark journey as completed
+        ticket.save(update_fields=["end_stopage", "out_ticket_time", "is_completed"])
         costs=RouteStopage.objects.get(route_id=trip.route,stopage=ticket.start_stopage).distance_from_last_stopage
         coste=RouteStopage.objects.get(route_id=trip.route,stopage=current_stopage).distance_from_last_stopage
         cost=coste-costs
@@ -387,11 +398,14 @@ def setg_view(request):
     except ValueError:
         return JsonResponse({"error": "Invalid value"}, status=400)
 
+    # Use Bangladesh timezone for consistent time recording (naive)
+    current_time_bd = get_bangladesh_time()
+
     ImgNow.objects.create(
         stopage=stopage,
         road=road,
         value=value,
-        time=timezone.localtime()
+        time=current_time_bd
     )
 
     return JsonResponse({
@@ -487,18 +501,20 @@ def setbus(request):
         route = Route.objects.get(route_id=route_id)
     except Route.DoesNotExist:
         return Response({"error": "Route not found."}, status=status.HTTP_404_NOT_FOUND)
-
+    
     # Create new Trip
     from uuid import uuid4
+    current_bd_time = get_bangladesh_time()  # Get Bangladesh time (naive)
+    
     trip = Trip.objects.create(
         trip_id=f"TRIP-{uuid4().hex[:8]}",
         route=route,
         bus=bus,
-        date=timezone.localdate(),
+        date=current_bd_time.date(),  # Use Bangladesh date
         is_ended=False,
         available_seats=50,
         total_seats=50,
-        start_time=None
+        start_time=current_bd_time.time(),
     )
 
     # Get first stopage of the route
@@ -506,11 +522,14 @@ def setbus(request):
     if not first_route_stopage:
         return Response({"error": "Route has no stopages defined."}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Use Bangladesh timezone for schedule creation (naive)
+    current_time_bd = get_bangladesh_time()
+
     # Create Schedule for first stopage with only arrival time
     Schedule.objects.create(
         trip=trip,
         stopage=first_route_stopage.stopage,
-        arrival_time=timezone.localtime().time(),  # Use current local time
+        arrival_time=current_time_bd.time(),  # Use Bangladesh time
     )
 
         # departure_time=timezone.now().time()  # Optional: can leave as same or None
@@ -594,6 +613,9 @@ def updatestop(request):
     arrive_flag = data.get('arrive')
     print(f"Received request to update stopage for bus_id: {bus_id}, stopage_id: {stopage_id}, arrive_flag: {arrive_flag}")
 
+    # Always use Bangladesh timezone
+    bd_timezone = pytz.timezone('Asia/Dhaka')
+
     # Validate input
     if not all([bus_id, stopage_id]) or arrive_flag not in [0, 1, '0', '1']:
         return Response({"error": "bus_id, stopage_id, and arrive (0 or 1) are required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -619,8 +641,9 @@ def updatestop(request):
     except Trip.DoesNotExist:
         return Response({"error": "No active trip for this bus."}, status=status.HTTP_404_NOT_FOUND)
 
-
-    now_time = timezone.localtime().time()
+    # Get current time in Bangladesh timezone (naive)
+    current_time_bd = get_bangladesh_time()
+    now_time = current_time_bd.time()  # Extract time component
     if arrive_flag == 1:
         try:
             schedule = Schedule.objects.get(trip=trip, stopage=stopage)
@@ -643,9 +666,40 @@ def updatestop(request):
         message = "Departure time updated."
     routes= Route.objects.get(route_id=trip.route.route_id)
     if str(stopage.name) == str(routes.end_stopage.name):
+        # Auto-complete all incomplete tickets when bus reaches final destination
+        incomplete_tickets = Ticket.objects.filter(
+            trip=trip,
+            is_completed=False
+        )
+        
+        completed_count = 0
+        for ticket in incomplete_tickets:
+            # Set out_ticket_time to current time if not already set
+            if not ticket.out_ticket_time:
+                ticket.out_ticket_time = current_time_bd  # Use Bangladesh timezone
+            # Mark ticket as completed
+            ticket.is_completed = True
+            ticket.card.availability = 1
+            cost = RouteStopage.objects.get(route_id=trip.route,stopage=ticket.start_stopage).distance_from_last_stopage - RouteStopage.objects.get(route_id=trip.route,stopage=stopage).distance_from_last_stopage
+            cost=abs(cost)
+            ticket.price=cost*2.5
+            print(f"Auto-completing ticket {ticket.id} with start stopage {ticket.start_stopage.name} end stopage {stopage.name} price {ticket.price}")
+            ticket.card.taka-=ticket.price
+            ticket.end_stopage = stopage
+            ticket.card.save(update_fields=['availability', 'taka'])
+            ticket.save(update_fields=['out_ticket_time', 'is_completed', 'price', 'end_stopage'])
+            trip.available_seats+=1
+            trip.save(update_fields=["available_seats"])
+            completed_count += 1
+        trip.start_time = trip.start_time or current_time_bd
+        trip.end_time = current_time_bd
         trip.is_ended = True
-        trip.save(update_fields=["is_ended"])
-        message += " Trip ended."
+        trip.save(update_fields=["is_ended", "start_time", "end_time"])
+
+        if completed_count > 0:
+            message += f" Trip ended. {completed_count} incomplete tickets auto-completed."
+        else:
+            message += " Trip ended."
     schedule.save()
     return Response({
         "message": message,

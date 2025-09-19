@@ -3,7 +3,7 @@ from . import views
 from django.urls import path
 from app.views import search_routes, f, get_buses,setbus,getstop,updatestop
 from app.analytics_views import (
-    analytics_dashboard, analytics_api, get_filter_options, traffic_analytics
+    analytics_dashboard, analytics_api, get_filter_options, traffic_analytics, enhanced_analytics_dashboard
 )
 
 urlpatterns = [
@@ -26,6 +26,7 @@ urlpatterns = [
     path('cap/', views.cap, name='cap'),
     
     path('analytics/', analytics_dashboard, name='analytics'),
+    path('analytics/enhanced/', enhanced_analytics_dashboard, name='enhanced_analytics'),
     path('analytics/api/', analytics_api, name='analytics_api'),
     path('analytics/filters/', get_filter_options, name='analytics_filters'),
     path('analytics/traffic/', traffic_analytics, name='traffic_analytics'),
