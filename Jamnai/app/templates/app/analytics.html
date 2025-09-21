@@ -146,6 +146,8 @@
                         <option value="total">Total System</option>
                         <option value="route">By Route</option>
                         <option value="bus">By Bus</option>
+                        <option value="daily">Daily Analysis</option>
+                        <option value="hourly">Hourly Analysis</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -228,6 +230,24 @@
                     </div>
                 </div>
 
+                <!-- Hourly Distribution Chart -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">⏰ Hourly Distribution</h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary active" onclick="toggleChartType('hourlyChart', 'bar')">Bar</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="toggleChartType('hourlyChart', 'radar')">Radar</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="hourlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Route Performance Chart -->
                 <div class="col-lg-6 mb-4">
                     <div class="card">
@@ -299,6 +319,9 @@
                                     <button class="nav-link" id="buses-tab" data-bs-toggle="pill" data-bs-target="#buses" type="button" role="tab">Buses</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="daily-tab" data-bs-toggle="pill" data-bs-target="#daily" type="button" role="tab">Daily Breakdown</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="stopages-tab" data-bs-toggle="pill" data-bs-target="#stopages" type="button" role="tab">Stopage Analysis</button>
                                 </li>
                             </ul>
@@ -330,6 +353,23 @@
                                                     <th>Trips</th>
                                                     <th>Tickets</th>
                                                     <th>Revenue (৳)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="daily" role="tabpanel">
+                                    <div class="table-responsive">
+                                        <table class="table table-striped" id="dailyTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Day</th>
+                                                    <th>Trips</th>
+                                                    <th>Tickets</th>
+                                                    <th>Revenue (৳)</th>
+                                                    <th>Avg Ticket (৳)</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -370,6 +410,7 @@
         let charts = {};
         let chartTypes = {
             revenueTrend: 'line',
+            hourly: 'bar',
             route: 'doughnut',
             bus: 'bar'
         };
@@ -437,7 +478,7 @@
             const filterType = this.value;
             const filterValueSelect = document.getElementById('filterValue');
             
-            filterValueSelect.disabled = (filterType === 'total');
+            filterValueSelect.disabled = (filterType === 'total' || filterType === 'daily' || filterType === 'hourly');
             
             if (!filterValueSelect.disabled) {
                 // Make sure filter options are loaded before trying to populate
@@ -453,6 +494,7 @@
                 filterValueSelect.innerHTML = '<option value="">Not applicable</option>';
             }
         });
+
         async function loadFilterOptions() {
             try {
                 console.log('Loading filter options...');
@@ -596,7 +638,11 @@
                 newTitle = `� Route ${data.route_info.route_id} Analytics`;
             } else if (filterType === 'bus' && data.bus_info) {
                 newTitle = `� Bus ${data.bus_info.bus_id} Analytics`;
-            } 
+            } else if (filterType === 'daily') {
+                newTitle = '� Daily Analytics Overview';
+            } else if (filterType === 'hourly') {
+                newTitle = '� Hourly Analytics Overview';
+            }
             
             titleElement.textContent = newTitle;
         }
@@ -621,6 +667,10 @@
                 renderRouteAnalytics(data);
             } else if (filterType === 'bus') {
                 renderBusAnalytics(data);
+            } else if (filterType === 'daily') {
+                renderDailyAnalytics(data);
+            } else if (filterType === 'hourly') {
+                renderHourlyAnalytics(data);
             }
         }
 
@@ -733,6 +783,64 @@
                         interaction: {
                             intersect: false,
                             mode: 'index'
+                        }
+                    }
+                });
+            }
+            
+            // Hourly distribution with gradient bars
+            if (data.hourly_distribution) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                const gradient = createGradient(ctx, '#764ba2', '#667eea');
+                
+                charts.hourly = new Chart(ctx, {
+                    type: chartTypes.hourly || 'bar',
+                    data: {
+                        labels: data.hourly_distribution.map(d => `${d.hour}:00`),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.hourly_distribution.map(d => d.tickets),
+                            backgroundColor: gradient,
+                            borderColor: '#667eea',
+                            borderWidth: 2,
+                            borderRadius: 4,
+                            borderSkipped: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 1200,
+                            easing: 'easeOutBounce'
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: '#fff',
+                                bodyColor: '#fff',
+                                borderColor: '#764ba2',
+                                borderWidth: 1,
+                                cornerRadius: 6
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                            }
                         }
                     }
                 });
@@ -862,6 +970,7 @@
             // Populate tables
             populateRoutesTable(data.route_performance || []);
             populateBusesTable(data.bus_performance || []);
+            populateDailyTable(data.daily_trend || []);
             populateStopageTable(data.stopage_congestion || []);
 
             // Render stopage congestion chart if available
@@ -1096,6 +1205,42 @@
                 });
             }
 
+            // Hourly pattern for this route (if available)
+            if (data.hourly_pattern) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                charts.hourly = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.hourly_pattern.map(h => `${h.hour}:00`),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.hourly_pattern.map(h => h.tickets),
+                            backgroundColor: 'rgba(102, 126, 234, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Hourly Ticket Distribution - Route ${data.route_info ? data.route_info.route_id : 'Selected'}`
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
             // Hide unused charts for route view
             destroyChart('bus');
             
@@ -1208,6 +1353,47 @@
                 });
             }
 
+            // Show bus info in hourly chart area
+            if (data.bus_info) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                const busInfoChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Owner', 'Total Routes', 'Total Trips', 'Total Revenue'],
+                        datasets: [{
+                            label: 'Bus Information',
+                            data: [
+                                1, // Owner count
+                                data.summary.routes_served || 0,
+                                data.summary.total_trips || 0,
+                                data.summary.total_revenue || 0
+                            ],
+                            backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Bus ${data.bus_info.bus_id} Overview`
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
             // Populate tables with bus-specific data
             if (data.route_performance) {
                 populateRoutesTable(data.route_performance);
@@ -1215,6 +1401,184 @@
 
             // Hide unused charts
             destroyChart('bus');
+        }
+
+        function renderDailyAnalytics(data) {
+            // Daily breakdown analytics
+            if (data.daily_breakdown) {
+                const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.daily_breakdown.map(d => d.date),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.daily_breakdown.map(d => d.revenue),
+                            backgroundColor: data.daily_breakdown.map(d => 
+                                d.is_weekend ? 'rgba(245, 87, 108, 0.8)' : 'rgba(102, 126, 234, 0.8)'
+                            )
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Daily Revenue Breakdown'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Trips vs Tickets comparison
+                const ctx2 = document.getElementById('routeChart').getContext('2d');
+                destroyChart('route');
+                
+                charts.route = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: data.daily_breakdown.map(d => d.day_name),
+                        datasets: [{
+                            label: 'Trips',
+                            data: data.daily_breakdown.map(d => d.trips),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.4
+                        }, {
+                            label: 'Tickets',
+                            data: data.daily_breakdown.map(d => d.tickets),
+                            borderColor: '#764ba2',
+                            backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Trips vs Tickets by Day'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hide unused charts
+            destroyChart('hourly');
+            destroyChart('bus');
+            
+            // Populate daily table with proper data
+            if (data.daily_breakdown) {
+                populateDailyTable(data.daily_breakdown);
+            }
+        }
+
+        function renderHourlyAnalytics(data) {
+            // Hourly breakdown analytics
+            if (data.hourly_breakdown) {
+                const ctx = document.getElementById('hourlyChart').getContext('2d');
+                destroyChart('hourly');
+                
+                charts.hourly = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.hourly_breakdown.map(d => d.hour_label),
+                        datasets: [{
+                            label: 'Tickets',
+                            data: data.hourly_breakdown.map(d => d.tickets),
+                            backgroundColor: data.hourly_breakdown.map(d => {
+                                const hour = d.hour;
+                                if ((hour >= 7 && hour <= 10) || (hour >= 17 && hour <= 20)) {
+                                    return 'rgba(245, 87, 108, 0.8)'; // Peak hours - red
+                                } else if (hour >= 12 && hour <= 14) {
+                                    return 'rgba(240, 147, 251, 0.8)'; // Lunch time - pink
+                                } else {
+                                    return 'rgba(102, 126, 234, 0.8)'; // Normal hours - blue
+                                }
+                            })
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Hourly Ticket Distribution'
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Revenue by hour
+                const ctx2 = document.getElementById('revenueTrendChart').getContext('2d');
+                destroyChart('revenueTrend');
+                
+                charts.revenueTrend = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: data.hourly_breakdown.map(d => d.hour_label),
+                        datasets: [{
+                            label: 'Revenue (৳)',
+                            data: data.hourly_breakdown.map(d => d.revenue),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Hourly Revenue Distribution'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Hide unused charts
+            destroyChart('route');
+            destroyChart('bus');
+            
+            // For hourly analytics, we can show a simplified daily table if available
+            if (data.daily_summary) {
+                populateDailyTable(data.daily_summary);
+            }
         }
 
         function populateRoutesTable(routes) {
@@ -1242,6 +1606,20 @@
                         <td>৳${bus.revenue.toLocaleString()}</td>
                     </tr>
                 `).join('');
+        }
+
+        function populateDailyTable(daily) {
+            const tbody = document.querySelector('#dailyTable tbody');
+            tbody.innerHTML = daily.map(day => `
+                <tr>
+                    <td>${day.date}</td>
+                    <td>${day.day_name || new Date(day.date).toLocaleDateString('en', { weekday: 'short' })}</td>
+                    <td>${day.trips || 0}</td>
+                    <td>${day.tickets || 0}</td>
+                    <td>৳${(day.revenue || 0).toLocaleString()}</td>
+                    <td>৳${(day.avg_ticket_price || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
         }
 
         function populateStopageTable(stopages) {
@@ -1375,46 +1753,6 @@
         function destroyChart(chartName) {
             if (charts[chartName]) {
                 charts[chartName].destroy();
-            }
-        }
-
-        function refreshAnalytics() {
-            // Force refresh of analytics data
-            loadAnalytics(true);
-        }
-
-        function toggleChartType(chartId, newType) {
-            // Extract chart name from chartId (remove 'Chart' suffix)
-            const chartName = chartId.replace('Chart', '');
-            
-            if (charts[chartName]) {
-                // Update chart type
-                charts[chartName].config.type = newType;
-                charts[chartName].update('none');
-                
-                // Store current chart type
-                chartTypes[chartName] = newType;
-                
-                // Update button states in the corresponding button group
-                const chartContainer = document.getElementById(chartId).closest('.card');
-                const buttonGroup = chartContainer.querySelector('.btn-group');
-                
-                if (buttonGroup) {
-                    buttonGroup.querySelectorAll('.btn').forEach(btn => {
-                        btn.classList.remove('active');
-                        btn.classList.add('btn-outline-primary');
-                        btn.classList.remove('btn-primary');
-                    });
-                    
-                    // Find and activate the clicked button
-                    buttonGroup.querySelectorAll('.btn').forEach(btn => {
-                        if (btn.textContent.toLowerCase() === newType.toLowerCase()) {
-                            btn.classList.add('active');
-                            btn.classList.remove('btn-outline-primary');
-                            btn.classList.add('btn-primary');
-                        }
-                    });
-                }
             }
         }
     </script>
