@@ -9,7 +9,7 @@
     <style>
         /* Enhanced navigation styles */
         nav {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            /* background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); */
             padding: 15px 0;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             position: sticky;
@@ -137,7 +137,6 @@
     </style>
 </head>
 <body>
-    <!-- Enhanced Navigation Bar -->
     <nav>
         <div class="nav-container">
             <div class="nav-left">
@@ -152,10 +151,15 @@
                 <ul>
                     {% if user.is_authenticated %}
                         <li><a href="{% url 'search' %}">🏠 Home</a></li>
+                    {% if user.role|lower == "bus" %}
                         <li><a href="{% url 'bus' %}">🚌 Bus Manager</a></li>
-                        <li><a href="{% url 'owner' %}">🏢 Owner</a></li>
-                        <li><a href="{% url 'analytics' %}">📊 Analytics</a></li>
-                        <li><a href="{% url 'logout' %}" class="logout">🚪 Logout</a></li>
+                    {% endif %}
+                    {% if user.role|lower == "owner" %}
+                    <li><a href="{% url 'owner' %}">🏢 Owner</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'analytics' %}">📊 Analytics</a></li>
+
+                    <li><a href="{% url 'logout' %}" class="logout">🚪 Logout</a></li>
                     {% else %}
                         <li><a href="{% url 'login' %}">🚀 Login</a></li>
                     {% endif %}
