@@ -343,6 +343,7 @@
                         <th>📍 Current Location</th>
                         <th>🕐 Last Departure</th>
                         <th>⏱️ Estimated Arrival</th>
+                        <th>Seat Available</th>
                         <th>🔄 Last Updated</th>
                     </tr>
                 </thead>
@@ -363,6 +364,12 @@
                                 {{ bus.estimated_time|default:"Calculating..." }}
                             </span>
                         </td>
+                            <td>
+                                <span style="color: var(--primary-color); font-weight: bold;">
+                                    {{ bus.seat_avialable|default:0 }}/{{ bus.total_seat|default:50 }}
+                                </span>
+                            </td>
+
                         <td>
                             <small style="color: var(--medium-gray);">
                                 {{ bus.updated_at|date:"h:i A"|default:"--" }}
@@ -946,4 +953,5 @@ document.addEventListener('DOMContentLoaded', () => {
     
     new TrieBasedAutocomplete();
 });
-</script>{% endblock %}
+</script>
+{% endblock %}

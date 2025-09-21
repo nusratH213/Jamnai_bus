@@ -157,8 +157,8 @@ def get_total_analytics(start_date, end_date):
     
     # Daily revenue trend (last 30 days)
     daily_revenue = []
-    # Use today's date if end_date is None
-    reference_date = end_date if end_date else timezone.now().date()
+    # Use today's date if end_date is None (use Bangladesh time)
+    reference_date = end_date if end_date else get_bangladesh_time().date()
     
     for i in range(30):
         date = reference_date - timedelta(days=i)
@@ -242,7 +242,7 @@ def get_route_analytics(route_id, start_date, end_date, start_time=None, end_tim
     # Daily performance for this route
     daily_performance = []
     for i in range(30):
-        date = (end_date or timezone.now().date()) - timedelta(days=i)
+        date = (end_date or get_bangladesh_time().date()) - timedelta(days=i)
         day_trips = trips.filter(date=date)
         day_tickets = tickets.filter(trip__date=date)
         day_revenue = float(day_tickets.aggregate(Sum('price'))['price__sum'] or 0)
@@ -318,10 +318,22 @@ def get_bus_analytics(bus_id, start_date, end_date):
                 'revenue': float(route_tickets.aggregate(Sum('price'))['price__sum'] or 0)
             })
     
-    # Daily performance
+    # Daily performance - respect actual date range
     daily_performance = []
-    for i in range(30):
-        date = (end_date or timezone.now().date()) - timedelta(days=i)
+    
+    # Calculate the actual date range
+    actual_end_date = end_date or get_bangladesh_time().date()
+    if start_date and start_date == actual_end_date:
+        # If start_date equals end_date (like "today"), show only that day
+        date_range = [actual_end_date]
+    else:
+        # Otherwise, show range from start_date to end_date (max 30 days for performance)
+        actual_start_date = start_date or (actual_end_date - timedelta(days=29))
+        days_diff = (actual_end_date - actual_start_date).days
+        max_days = min(days_diff + 1, 30)  # Limit to 30 days max
+        date_range = [actual_end_date - timedelta(days=i) for i in range(max_days)]
+    
+    for date in date_range:
         day_trips = trips.filter(date=date)
         day_tickets = tickets.filter(trip__date=date)
         
@@ -360,7 +372,7 @@ def get_bus_analytics(bus_id, start_date, end_date):
 def get_daily_analytics(start_date, end_date):
     """Get daily analytics breakdown"""
     if not end_date:
-        end_date = timezone.now().date()
+        end_date = get_bangladesh_time().date()
     if not start_date:
         start_date = end_date - timedelta(days=30)
     

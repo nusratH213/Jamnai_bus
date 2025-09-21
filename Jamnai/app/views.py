@@ -171,8 +171,11 @@ def search_routes(request):
                                         'last_stopage': last_schedule.stopage.name,
                                         'last_departure': big.departure_time.strftime("%H:%M") if big and big.departure_time else "Not Departed",
                                         'estimated_time': estimated_time if big else "Infinity", 
-                                        'updated_at': current_time_bd
+                                        'updated_at': current_time_bd,
+                                        'seat_avialable':trip.available_seats,
+                                        'total_seat':trip.total_seats,
                                     })
+                                print(buses_info)
                                 # print(f"Bus {trip.bus.id} last stopage: {last_schedule.stopage.name if last_schedule else 'N/A'}")
                             except RouteStopage.DoesNotExist:
                                 continue
