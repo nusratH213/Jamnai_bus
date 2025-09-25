@@ -39,6 +39,15 @@ def analytics_api(request):
     time_period = request.GET.get('period', 'all')  # all, today, week, month, year
     start_time_str = request.GET.get('start_time', '')  # Format: HH:MM
     end_time_str = request.GET.get('end_time', '')    # Format: HH:MM
+    hourly_analysis = request.GET.get('hourly_analysis', 'false').lower() == 'true'
+    
+    print(f"Analytics API called with:")
+    print(f"  filter_type: {filter_type}")
+    print(f"  filter_value: {filter_value}")
+    print(f"  time_period: {time_period}")
+    print(f"  start_time: {start_time_str}")
+    print(f"  end_time: {end_time_str}")
+    print(f"  hourly_analysis: {hourly_analysis}")
     
     # Parse time intervals if provided
     start_time = None
@@ -47,6 +56,7 @@ def analytics_api(request):
         try:
             start_time = datetime.strptime(start_time_str, '%H:%M').time()
             end_time = datetime.strptime(end_time_str, '%H:%M').time()
+            print(f"  Parsed times: {start_time} - {end_time}")
         except ValueError:
             return JsonResponse({'error': 'Invalid time format. Use HH:MM'}, status=400)
     
@@ -63,13 +73,52 @@ def analytics_api(request):
     else:
         start_date = None
     
+    print(f"  Date range: {start_date} to {end_date}")
+    
     data = {}
     
     try:
-        if filter_type == 'total':
+        # Handle hourly analysis requests
+        if hourly_analysis and time_period == 'today':
+            print("Processing hourly analysis request...")
+            if filter_type == 'total':
+                data = get_hourly_total_analytics(start_date, None, None)  # Use full day
+            elif filter_type == 'route':
+                data = get_hourly_route_analytics(filter_value, start_date, None, None)
+            elif filter_type == 'bus':
+                data = get_hourly_bus_analytics(filter_value, start_date, None, None)
+            else:
+                data = get_hourly_total_analytics(start_date, None, None)
+        
+        # Handle custom date/time analysis requests
+        elif request.GET.get('custom_analysis', '').lower() == 'true':
+            custom_start_date = request.GET.get('start_date', '')
+            custom_end_date = request.GET.get('end_date', '')
+            
+            if not custom_start_date or not custom_end_date:
+                return JsonResponse({'error': 'start_date and end_date are required for custom analysis'}, status=400)
+            
+            try:
+                start_date = datetime.strptime(custom_start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(custom_end_date, '%Y-%m-%d').date()
+                print(f"Processing custom analysis from {start_date} to {end_date}")
+                
+                if filter_type == 'total':
+                    data = get_custom_total_analytics(start_date, end_date, None, None)
+                elif filter_type == 'route':
+                    data = get_custom_route_analytics(filter_value, start_date, end_date, None, None)
+                elif filter_type == 'bus':
+                    data = get_custom_bus_analytics(filter_value, start_date, end_date, None, None)
+                else:
+                    data = get_custom_total_analytics(start_date, end_date, None, None)
+            except ValueError:
+                return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD'}, status=400)
+        
+        # Handle regular analytics requests
+        elif filter_type == 'total':
             data = get_total_analytics(start_date, end_date)
         elif filter_type == 'route':
-            data = get_route_analytics(filter_value, start_date, end_date, start_time, end_time)
+            data = get_route_analytics(filter_value, start_date, end_date, None, None)
         elif filter_type == 'bus':
             data = get_bus_analytics(filter_value, start_date, end_date)
         elif filter_type == 'daily':
@@ -88,7 +137,11 @@ def analytics_api(request):
             data = get_route_time_analytics(filter_value, start_date, end_date)
         else:
             data = get_total_analytics(start_date, end_date)
+            
+        print(f"Response data keys: {list(data.keys()) if isinstance(data, dict) else 'List response'}")
+        
     except Exception as e:
+        print(f"Error in analytics API: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
     
     # Handle list responses (like hourly data) with safe=False
@@ -500,6 +553,8 @@ def get_route_stopage_analysis(route, start_date, end_date, start_time=None, end
         stopage = route_stopage.stopage
         
         # Count boarding and alighting at this stopage
+        # Calculate boarding and alighting for this stopage
+        # Calculate boarding and alighting for this stopage
         boarding_count = tickets.filter(start_stopage=stopage).count()
         alighting_count = tickets.filter(end_stopage=stopage).count()
         boarding_revenue = float(tickets.filter(start_stopage=stopage).aggregate(Sum('price'))['price__sum'] or 0)
@@ -561,6 +616,789 @@ def get_stopage_congestion_analysis(start_date, end_date):
     stopage_list.sort(key=lambda x: x['total_traffic'], reverse=True)
     
     return stopage_list
+
+def get_hourly_total_analytics(target_date, start_time, end_time):
+    """Get hourly analytics for total system within specified time range"""
+    print(f"Getting hourly total analytics for {target_date} from {start_time} to {end_time}")
+    
+    # Filter tickets by date and time range
+    tickets = Ticket.objects.filter(
+        trip__date=target_date,
+        in_ticket_time__time__gte=start_time,
+        in_ticket_time__time__lte=end_time,
+        in_ticket_time__isnull=False  # Only tickets with boarding time
+    )
+    
+    print(f"Found {tickets.count()} tickets in time range")
+    
+    # Generate hourly breakdown
+    hourly_breakdown = []
+    hourly_trend = []
+    hourly_distribution = []
+    
+    current_hour = start_time.hour
+    end_hour = end_time.hour
+    
+    # Handle time ranges that span midnight
+    if end_hour < current_hour:
+        end_hour += 24
+    
+    total_trips = 0
+    total_revenue = 0
+    total_tickets = 0
+    peak_hour = None
+    max_tickets = 0
+    active_buses = set()
+    
+    while current_hour <= end_hour:
+        hour_24 = current_hour % 24
+        
+        # Filter tickets for this hour
+        hour_tickets = tickets.filter(in_ticket_time__time__hour=hour_24)
+        hour_count = hour_tickets.count()
+        hour_revenue = float(hour_tickets.aggregate(Sum('price'))['price__sum'] or 0)
+        hour_trips = hour_tickets.values('trip').distinct().count()
+        
+        # Track peak hour
+        if hour_count > max_tickets:
+            max_tickets = hour_count
+            peak_hour = f"{hour_24:02d}:00"
+        
+        # Collect active buses
+        hour_buses = hour_tickets.values_list('trip__bus', flat=True).distinct()
+        active_buses.update(hour_buses)
+        
+        # Accumulate totals
+        total_trips += hour_trips
+        total_revenue += hour_revenue
+        total_tickets += hour_count
+        
+        # Add to data structures
+        hourly_breakdown.append({
+            'hour': hour_24,
+            'trips': hour_trips,
+            'tickets': hour_count,
+            'revenue': hour_revenue,
+            'avg_ticket_price': hour_revenue / hour_count if hour_count > 0 else 0,
+            'time_period': get_time_period_name(hour_24)
+        })
+        
+        hourly_trend.append({
+            'hour': hour_24,
+            'revenue': hour_revenue,
+            'trips': hour_trips
+        })
+        
+        hourly_distribution.append({
+            'hour': hour_24,
+            'tickets': hour_count
+        })
+        
+        current_hour += 1
+    
+    # Get route performance for this time range
+    route_performance = []
+    for route in Route.objects.all():
+        route_tickets = tickets.filter(trip__route=route)
+        if route_tickets.exists():
+            route_performance.append({
+                'route_id': route.route_id,
+                'route_name': f"{route.start_stopage.name} → {route.end_stopage.name}",
+                'tickets': route_tickets.count(),
+                'revenue': float(route_tickets.aggregate(Sum('price'))['price__sum'] or 0),
+                'trips': route_tickets.values('trip').distinct().count()
+            })
+    
+    # Get bus performance for this time range
+    bus_performance = []
+    for bus_id in active_buses:
+        if bus_id:  # Skip None values
+            bus_tickets = tickets.filter(trip__bus=bus_id)
+            if bus_tickets.exists():
+                bus_performance.append({
+                    'bus_id': bus_id,
+                    'tickets': bus_tickets.count(),
+                    'revenue': float(bus_tickets.aggregate(Sum('price'))['price__sum'] or 0),
+                    'trips': bus_tickets.values('trip').distinct().count()
+                })
+    
+    return {
+        'hourly_summary': {
+            'total_trips': total_trips,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+            'active_buses': len(active_buses),
+            'peak_hour': peak_hour or 'N/A'
+        },
+        'hourly_breakdown': hourly_breakdown,
+        'hourly_trend': hourly_trend,
+        'hourly_distribution': hourly_distribution,
+        'hourly_route_performance': route_performance,
+        'hourly_bus_performance': bus_performance
+    }
+
+def get_hourly_route_analytics(route_id, target_date, start_time, end_time):
+    """Get hourly analytics for a specific route within specified time range"""
+    print(f"Getting hourly route analytics for route {route_id} on {target_date} from {start_time} to {end_time}")
+    
+    try:
+        route = Route.objects.get(route_id=route_id)
+    except Route.DoesNotExist:
+        return {'error': 'Route not found'}
+    
+    # Filter tickets by route, date and time range
+    tickets = Ticket.objects.filter(
+        trip__route=route,
+        trip__date=target_date,
+        in_ticket_time__time__gte=start_time,
+        in_ticket_time__time__lte=end_time,
+        in_ticket_time__isnull=False
+    )
+    
+    print(f"Found {tickets.count()} tickets for route in time range")
+    
+    # Generate hourly breakdown
+    hourly_breakdown = []
+    hourly_trend = []
+    hourly_distribution = []
+    
+    current_hour = start_time.hour
+    end_hour = end_time.hour
+    
+    if end_hour < current_hour:
+        end_hour += 24
+    
+    total_trips = 0
+    total_revenue = 0
+    total_tickets = 0
+    peak_hour = None
+    max_tickets = 0
+    
+    while current_hour <= end_hour:
+        hour_24 = current_hour % 24
+        
+        hour_tickets = tickets.filter(in_ticket_time__time__hour=hour_24)
+        hour_count = hour_tickets.count()
+        hour_revenue = float(hour_tickets.aggregate(Sum('price'))['price__sum'] or 0)
+        hour_trips = hour_tickets.values('trip').distinct().count()
+        
+        if hour_count > max_tickets:
+            max_tickets = hour_count
+            peak_hour = f"{hour_24:02d}:00"
+        
+        total_trips += hour_trips
+        total_revenue += hour_revenue
+        total_tickets += hour_count
+        
+        hourly_breakdown.append({
+            'hour': hour_24,
+            'trips': hour_trips,
+            'tickets': hour_count,
+            'revenue': hour_revenue,
+            'avg_ticket_price': hour_revenue / hour_count if hour_count > 0 else 0
+        })
+        
+        hourly_trend.append({
+            'hour': hour_24,
+            'revenue': hour_revenue,
+            'trips': hour_trips
+        })
+        
+        hourly_distribution.append({
+            'hour': hour_24,
+            'tickets': hour_count
+        })
+        
+        current_hour += 1
+    
+    # Get stopage analysis for this time range
+    stopage_analysis = get_route_stopage_analysis(route, target_date, target_date, start_time, end_time)
+    
+    return {
+        'route_info': {
+            'route_id': route.route_id,
+            'name': f"{route.start_stopage.name} → {route.end_stopage.name}",
+            'start': route.start_stopage.name,
+            'end': route.end_stopage.name
+        },
+        'hourly_summary': {
+            'total_trips': total_trips,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+            'peak_hour': peak_hour or 'N/A'
+        },
+        'hourly_breakdown': hourly_breakdown,
+        'hourly_trend': hourly_trend,
+        'hourly_distribution': hourly_distribution,
+        'hourly_stopage_analysis': stopage_analysis
+    }
+
+def get_hourly_bus_analytics(bus_id, target_date, start_time, end_time):
+    """Get hourly analytics for a specific bus within specified time range"""
+    print(f"Getting hourly bus analytics for bus {bus_id} on {target_date} from {start_time} to {end_time}")
+    
+    try:
+        bus = User.objects.get(id=bus_id, role='bus')
+    except User.DoesNotExist:
+        return {'error': 'Bus not found'}
+    
+    # Filter tickets by bus, date and time range
+    tickets = Ticket.objects.filter(
+        trip__bus=bus.id,
+        trip__date=target_date,
+        in_ticket_time__time__gte=start_time,
+        in_ticket_time__time__lte=end_time,
+        in_ticket_time__isnull=False
+    )
+    
+    print(f"Found {tickets.count()} tickets for bus in time range")
+    
+    # Generate hourly breakdown
+    hourly_breakdown = []
+    hourly_trend = []
+    hourly_distribution = []
+    
+    current_hour = start_time.hour
+    end_hour = end_time.hour
+    
+    if end_hour < current_hour:
+        end_hour += 24
+    
+    total_trips = 0
+    total_revenue = 0
+    total_tickets = 0
+    peak_hour = None
+    max_tickets = 0
+    routes_covered = set()
+    
+    while current_hour <= end_hour:
+        hour_24 = current_hour % 24
+        
+        hour_tickets = tickets.filter(in_ticket_time__time__hour=hour_24)
+        hour_count = hour_tickets.count()
+        hour_revenue = float(hour_tickets.aggregate(Sum('price'))['price__sum'] or 0)
+        hour_trips = hour_tickets.values('trip').distinct().count()
+        
+        # Track routes covered in this hour
+        hour_routes = hour_tickets.values_list('trip__route', flat=True).distinct()
+        routes_covered.update(hour_routes)
+        
+        if hour_count > max_tickets:
+            max_tickets = hour_count
+            peak_hour = f"{hour_24:02d}:00"
+        
+        total_trips += hour_trips
+        total_revenue += hour_revenue
+        total_tickets += hour_count
+        
+        hourly_breakdown.append({
+            'hour': hour_24,
+            'trips': hour_trips,
+            'tickets': hour_count,
+            'revenue': hour_revenue,
+            'avg_ticket_price': hour_revenue / hour_count if hour_count > 0 else 0
+        })
+        
+        hourly_trend.append({
+            'hour': hour_24,
+            'revenue': hour_revenue,
+            'trips': hour_trips
+        })
+        
+        hourly_distribution.append({
+            'hour': hour_24,
+            'tickets': hour_count
+        })
+        
+        current_hour += 1
+    
+    # Get route distribution for this bus in this time range
+    route_distribution = []
+    for route_id in routes_covered:
+        if route_id:
+            try:
+                route = Route.objects.get(id=route_id)
+                route_tickets = tickets.filter(trip__route=route)
+                route_distribution.append({
+                    'route_id': route.route_id,
+                    'route_name': f"{route.start_stopage.name} → {route.end_stopage.name}",
+                    'tickets': route_tickets.count(),
+                    'revenue': float(route_tickets.aggregate(Sum('price'))['price__sum'] or 0),
+                    'trips': route_tickets.values('trip').distinct().count()
+                })
+            except Route.DoesNotExist:
+                continue
+    
+    return {
+        'bus_info': {
+            'bus_id': bus.id,
+            'bus_name': str(bus.id),
+            'bus_number': str(bus.id)
+        },
+        'hourly_summary': {
+            'total_trips': total_trips,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+            'routes_covered': len(routes_covered),
+            'peak_hour': peak_hour or 'N/A'
+        },
+        'hourly_breakdown': hourly_breakdown,
+        'hourly_trend': hourly_trend,
+        'hourly_distribution': hourly_distribution,
+        'hourly_route_distribution': route_distribution
+    }
+
+def get_time_period_name(hour):
+    """Get time period name for a given hour"""
+    if 6 <= hour < 12:
+        return 'Morning'
+    elif 12 <= hour < 18:
+        return 'Afternoon'
+    elif 18 <= hour < 22:
+        return 'Evening'
+    else:
+        return 'Night'
+
+def get_route_stopage_analysis(route, start_date, end_date, start_time=None, end_time=None):
+    """Get stopage analysis for a route within optional time range"""
+    try:
+        routestopages = RouteStopage.objects.filter(route=route).order_by('order')
+        
+        stopage_data = []
+        for rs in routestopages:
+            # Base query for tickets involving this stopage and route
+            base_tickets_query = Ticket.objects.filter(
+                trip__route=route,
+                trip__date__gte=start_date,
+                trip__date__lte=end_date
+            )
+            
+            # Add time filtering if provided
+            if start_time and end_time:
+                base_tickets_query = base_tickets_query.filter(
+                    in_ticket_time__time__gte=start_time,
+                    in_ticket_time__time__lte=end_time,
+                    in_ticket_time__isnull=False
+                )
+            
+            # Calculate boarding (passengers getting on at this stopage)
+            boarding_count = base_tickets_query.filter(start_stopage=rs.stopage).count()
+            
+            # Calculate alighting (passengers getting off at this stopage)
+            alighting_count = base_tickets_query.filter(end_stopage=rs.stopage).count()
+            
+            # Calculate revenue from boarding at this stopage
+            boarding_revenue = float(base_tickets_query.filter(start_stopage=rs.stopage).aggregate(Sum('price'))['price__sum'] or 0)
+            
+            stopage_data.append({
+                'stopage_id': rs.stopage.id,
+                'stopage_name': rs.stopage.name,
+                'position': rs.order if rs.order is not None else 'N/A',  # Ensure it's never None
+                'order': rs.order if rs.order is not None else 'N/A',     # Keep 'order' for backward compatibility
+                'boarding_count': boarding_count,
+                'alighting_count': alighting_count,
+                'total_traffic': boarding_count + alighting_count,
+                'tickets': boarding_count,  # For backward compatibility
+                'revenue': boarding_revenue,
+                'avg_revenue_per_ticket': float(boarding_revenue / boarding_count) if boarding_count > 0 else 0,
+                'congestion_level': get_congestion_level(boarding_count + alighting_count)
+            })
+        
+        return stopage_data
+    except Exception as e:
+        print(f"Error in route stopage analysis: {e}")
+        return []
+
+def get_custom_total_analytics(start_date, end_date, start_time=None, end_time=None):
+    """Get custom date/time range analytics for total system"""
+    print(f"Getting custom total analytics from {start_date} to {end_date}")
+    
+    # Base ticket query
+    tickets_query = Ticket.objects.filter(
+        trip__date__gte=start_date,
+        trip__date__lte=end_date
+    )
+    
+    # Apply time filtering if provided
+    if start_time and end_time:
+        tickets_query = tickets_query.filter(
+            in_ticket_time__time__gte=start_time,
+            in_ticket_time__time__lte=end_time,
+            in_ticket_time__isnull=False
+        )
+    
+    print(f"Found {tickets_query.count()} tickets in custom range")
+    
+    # Summary calculations
+    total_tickets = tickets_query.count()
+    total_revenue = float(tickets_query.aggregate(Sum('price'))['price__sum'] or 0)
+    total_trips = tickets_query.values('trip').distinct().count()
+    active_routes = tickets_query.values('trip__route').distinct().count()
+    avg_ticket_price = total_revenue / total_tickets if total_tickets > 0 else 0
+    
+    # Daily trend within the date range
+    daily_trend = []
+    current_date = start_date
+    while current_date <= end_date:
+        day_tickets_query = tickets_query.filter(trip__date=current_date)
+        
+        # Apply time filter for daily data too
+        if start_time and end_time:
+            day_tickets_query = day_tickets_query.filter(
+                in_ticket_time__time__gte=start_time,
+                in_ticket_time__time__lte=end_time,
+                in_ticket_time__isnull=False
+            )
+        
+        day_trips = day_tickets_query.values('trip').distinct().count()
+        day_tickets = day_tickets_query.count()
+        day_revenue = float(day_tickets_query.aggregate(Sum('price'))['price__sum'] or 0)
+        
+        daily_trend.append({
+            'date': current_date.strftime('%Y-%m-%d'),
+            'day_name': current_date.strftime('%A'),
+            'trips': day_trips,
+            'tickets': day_tickets,
+            'revenue': day_revenue,
+            'avg_ticket_price': day_revenue / day_tickets if day_tickets > 0 else 0
+        })
+        
+        current_date += timedelta(days=1)
+    
+    # Hourly distribution for the entire period
+    hourly_distribution = []
+    for hour in range(24):
+        hour_tickets = tickets_query.filter(
+            in_ticket_time__hour=hour,
+            in_ticket_time__isnull=False
+        ).count()
+        
+        hourly_distribution.append({
+            'hour': hour,
+            'tickets': hour_tickets
+        })
+    
+    # Route performance for the period
+    route_performance = []
+    for route in Route.objects.all():
+        route_tickets = tickets_query.filter(trip__route=route)
+        if route_tickets.exists():
+            route_performance.append({
+                'route_id': route.route_id,
+                'start': route.start_stopage.name,
+                'end': route.end_stopage.name,
+                'tickets': route_tickets.count(),
+                'revenue': float(route_tickets.aggregate(Sum('price'))['price__sum'] or 0),
+                'trips': route_tickets.values('trip').distinct().count()
+            })
+    
+    # Bus performance for the period
+    bus_performance = []
+    active_buses = tickets_query.values_list('trip__bus', flat=True).distinct()
+    for bus_id in active_buses:
+        if bus_id:
+            bus_tickets = tickets_query.filter(trip__bus=bus_id)
+            bus_performance.append({
+                'bus_id': bus_id,
+                'tickets': bus_tickets.count(),
+                'revenue': float(bus_tickets.aggregate(Sum('price'))['price__sum'] or 0),
+                'trips': bus_tickets.values('trip').distinct().count()
+            })
+    
+    # Enhanced stopage congestion analysis
+    stopage_congestion = get_custom_stopage_congestion_analysis(start_date, end_date, start_time, end_time)
+    
+    return {
+        'summary': {
+            'total_trips': total_trips,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+            'active_routes': active_routes,
+            'avg_ticket_price': avg_ticket_price,
+            'peak_congestion_level': get_peak_congestion_level(stopage_congestion)
+        },
+        'daily_trend': daily_trend,
+        'hourly_distribution': hourly_distribution,
+        'route_performance': route_performance,
+        'bus_performance': bus_performance,
+        'stopage_congestion': stopage_congestion
+    }
+
+def get_custom_route_analytics(route_id, start_date, end_date, start_time=None, end_time=None):
+    """Get custom date/time range analytics for a specific route"""
+    print(f"Getting custom route analytics for route {route_id} from {start_date} to {end_date}")
+    
+    try:
+        route = Route.objects.get(route_id=route_id)
+    except Route.DoesNotExist:
+        return {'error': 'Route not found'}
+    
+    # Base ticket query for this route
+    tickets_query = Ticket.objects.filter(
+        trip__route=route,
+        trip__date__gte=start_date,
+        trip__date__lte=end_date
+    )
+    
+    # Apply time filtering if provided
+    if start_time and end_time:
+        tickets_query = tickets_query.filter(
+            in_ticket_time__time__gte=start_time,
+            in_ticket_time__time__lte=end_time,
+            in_ticket_time__isnull=False
+        )
+    
+    print(f"Found {tickets_query.count()} tickets for route in custom range")
+    
+    # Summary calculations
+    total_tickets = tickets_query.count()
+    total_revenue = float(tickets_query.aggregate(Sum('price'))['price__sum'] or 0)
+    total_trips = tickets_query.values('trip').distinct().count()
+    avg_ticket_price = total_revenue / total_tickets if total_tickets > 0 else 0
+    
+    # Daily performance within the date range
+    daily_performance = []
+    current_date = start_date
+    while current_date <= end_date:
+        day_tickets_query = tickets_query.filter(trip__date=current_date)
+        
+        day_trips = day_tickets_query.values('trip').distinct().count()
+        day_tickets = day_tickets_query.count()
+        day_revenue = float(day_tickets_query.aggregate(Sum('price'))['price__sum'] or 0)
+        
+        daily_performance.append({
+            'date': current_date.strftime('%Y-%m-%d'),
+            'day_name': current_date.strftime('%A'),
+            'trips': day_trips,
+            'tickets': day_tickets,
+            'revenue': day_revenue,
+            'avg_ticket_price': day_revenue / day_tickets if day_tickets > 0 else 0
+        })
+        
+        current_date += timedelta(days=1)
+    
+    # Hourly pattern for this route
+    hourly_pattern = []
+    for hour in range(24):
+        hour_tickets = tickets_query.filter(
+            in_ticket_time__hour=hour,
+            in_ticket_time__isnull=False
+        ).count()
+        
+        hourly_pattern.append({
+            'hour': hour,
+            'tickets': hour_tickets
+        })
+    
+    # Stopage congestion analysis for this route
+    stopage_congestion = get_route_stopage_analysis(route, start_date, end_date, start_time, end_time)
+    
+    # Enhanced stopage analysis with boarding/alighting details
+    enhanced_stopage_congestion = []
+    for stopage_data in stopage_congestion:
+        stopage_id = stopage_data['stopage_id']
+        
+        # Calculate boarding and alighting for this stopage
+        boarding_count = tickets_query.filter(start_stopage_id=stopage_id).count()
+        # For alighting, we need to check tickets where this stopage is the destination
+        alighting_count = tickets_query.filter(end_stopage_id=stopage_id).count()
+        
+        enhanced_stopage_congestion.append({
+            'stopage_name': stopage_data['stopage_name'],
+            'position': stopage_data['order'],
+            'boarding_count': boarding_count,
+            'alighting_count': alighting_count,
+            'revenue': stopage_data['revenue']
+        })
+    
+    return {
+        'route_info': {
+            'route_id': route.route_id,
+            'name': f"{route.start_stopage.name} → {route.end_stopage.name}",
+            'start': route.start_stopage.name,
+            'end': route.end_stopage.name
+        },
+        'summary': {
+            'total_trips': total_trips,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+            'avg_ticket_price': avg_ticket_price
+        },
+        'daily_performance': daily_performance,
+        'hourly_pattern': hourly_pattern,
+        'stopage_congestion': enhanced_stopage_congestion
+    }
+
+def get_custom_bus_analytics(bus_id, start_date, end_date, start_time=None, end_time=None):
+    """Get custom date/time range analytics for a specific bus"""
+    print(f"Getting custom bus analytics for bus {bus_id} from {start_date} to {end_date}")
+    
+    try:
+        bus = User.objects.get(id=bus_id, role='bus')
+    except User.DoesNotExist:
+        return {'error': 'Bus not found'}
+    
+    # Base ticket query for this bus
+    tickets_query = Ticket.objects.filter(
+        trip__bus=bus.id,
+        trip__date__gte=start_date,
+        trip__date__lte=end_date
+    )
+    
+    # Apply time filtering if provided
+    if start_time and end_time:
+        tickets_query = tickets_query.filter(
+            in_ticket_time__time__gte=start_time,
+            in_ticket_time__time__lte=end_time,
+            in_ticket_time__isnull=False
+        )
+    
+    print(f"Found {tickets_query.count()} tickets for bus in custom range")
+    
+    # Summary calculations
+    total_tickets = tickets_query.count()
+    total_revenue = float(tickets_query.aggregate(Sum('price'))['price__sum'] or 0)
+    total_trips = tickets_query.values('trip').distinct().count()
+    routes_served = tickets_query.values('trip__route').distinct().count()
+    
+    # Daily performance within the date range
+    daily_performance = []
+    current_date = start_date
+    while current_date <= end_date:
+        day_tickets_query = tickets_query.filter(trip__date=current_date)
+        
+        day_trips = day_tickets_query.values('trip').distinct().count()
+        day_tickets = day_tickets_query.count()
+        day_revenue = float(day_tickets_query.aggregate(Sum('price'))['price__sum'] or 0)
+        
+        daily_performance.append({
+            'date': current_date.strftime('%Y-%m-%d'),
+            'day_name': current_date.strftime('%A'),
+            'trips': day_trips,
+            'tickets': day_tickets,
+            'revenue': day_revenue
+        })
+        
+        current_date += timedelta(days=1)
+    
+    # Route distribution for this bus
+    route_performance = []
+    active_routes = tickets_query.values_list('trip__route', flat=True).distinct()
+    for route_id in active_routes:
+        if route_id:
+            try:
+                route = Route.objects.get(id=route_id)
+                route_tickets = tickets_query.filter(trip__route=route)
+                route_performance.append({
+                    'route_id': route.route_id,
+                    'route_name': f"{route.start_stopage.name} → {route.end_stopage.name}",
+                    'tickets': route_tickets.count(),
+                    'revenue': float(route_tickets.aggregate(Sum('price'))['price__sum'] or 0),
+                    'trips': route_tickets.values('trip').distinct().count()
+                })
+            except Route.DoesNotExist:
+                continue
+    
+    return {
+        'bus_info': {
+            'bus_id': bus.id,
+            'bus_name': str(bus.id),
+            'bus_number': str(bus.id)
+        },
+        'summary': {
+            'total_trips': total_trips,
+            'total_revenue': total_revenue,
+            'total_tickets': total_tickets,
+            'routes_served': routes_served
+        },
+        'daily_performance': daily_performance,
+        'route_performance': route_performance
+    }
+
+def get_custom_stopage_congestion_analysis(start_date, end_date, start_time=None, end_time=None):
+    """Get enhanced stopage congestion analysis for custom date/time range"""
+    print(f"Getting custom stopage congestion analysis from {start_date} to {end_date}")
+    
+    # Base ticket query
+    tickets_query = Ticket.objects.filter(
+        trip__date__gte=start_date,
+        trip__date__lte=end_date
+    )
+    
+    # Apply time filtering if provided
+    if start_time and end_time:
+        tickets_query = tickets_query.filter(
+            in_ticket_time__time__gte=start_time,
+            in_ticket_time__time__lte=end_time,
+            in_ticket_time__isnull=False
+        )
+    
+    stopage_data = []
+    
+    # Get all stopages that have activity in this period
+    active_stopages = set()
+    active_stopages.update(tickets_query.values_list('start_stopage', flat=True))
+    active_stopages.update(tickets_query.values_list('end_stopage', flat=True))
+    active_stopages.discard(None)  # Remove None values
+    
+    for stopage_id in active_stopages:
+        try:
+            stopage = Stopage.objects.get(id=stopage_id)
+            
+            # Calculate boarding (passengers getting on at this stopage)
+            boarding_count = tickets_query.filter(start_stopage=stopage).count()
+            
+            # Calculate alighting (passengers getting off at this stopage)
+            alighting_count = tickets_query.filter(end_stopage=stopage).count()
+            
+            # Calculate revenue generated from this stopage
+            stopage_revenue = float(tickets_query.filter(start_stopage=stopage).aggregate(Sum('price'))['price__sum'] or 0)
+            
+            # Determine position if this stopage belongs to any route
+            position = 'N/A'
+            try:
+                route_stopage = RouteStopage.objects.filter(stopage=stopage).first()
+                if route_stopage and route_stopage.order is not None:
+                    position = route_stopage.order
+            except Exception:
+                pass
+            
+            stopage_data.append({
+                'stopage_id': stopage.id,
+                'stopage_name': stopage.name,
+                'position': position,
+                'boarding_count': boarding_count,
+                'alighting_count': alighting_count,
+                'total_traffic': boarding_count + alighting_count,
+                'revenue': stopage_revenue,
+                'congestion_level': get_congestion_level(boarding_count + alighting_count)
+            })
+            
+        except Stopage.DoesNotExist:
+            continue
+    
+    # Sort by total traffic (most congested first)
+    stopage_data.sort(key=lambda x: x['total_traffic'], reverse=True)
+    
+    print(f"Found {len(stopage_data)} active stopages in custom range")
+    return stopage_data
+
+def get_congestion_level(total_traffic):
+    """Determine congestion level based on total traffic"""
+    if total_traffic > 50:
+        return 'High'
+    elif total_traffic > 20:
+        return 'Medium'
+    else:
+        return 'Low'
+
+def get_peak_congestion_level(stopage_congestion):
+    """Get the peak congestion level from stopage data"""
+    if not stopage_congestion:
+        return 'N/A'
+    
+    max_traffic = max([s.get('total_traffic', 0) for s in stopage_congestion], default=0)
+    return get_congestion_level(max_traffic)
 
 def traffic_analytics(request):
     """Get traffic analytics from ImgNow data"""

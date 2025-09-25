@@ -1,0 +1,82 @@
+{% extends 'app/head.html' %}
+
+{% block title %}Bus Manager Dashboard{% endblock %}
+
+{% block navbar_heading %}
+<span>🚌</span> Bus Manager Dashboard
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Bus Manager Dashboard</h1>
+    <p>Click the button to send your current location to the server:</p>
+    <button id="get-location-btn" class="btn btn-primary">Send Location</button>
+
+    <h3 class="mt-4">Server Response:</h3>
+    <pre id="server-response"></pre>
+</div>
+
+<script>
+document.getElementById('get-location-btn').addEventListener('click', function() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(sendLocation, showError);
+    } else {
+        alert("Geolocation is not supported by this browser.");
+    }
+});
+
+function sendLocation(position) {
+    const data = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+    };
+
+    fetch("{% url 'location_api' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        document.getElementById('server-response').textContent = JSON.stringify(result, null, 2);
+    })
+    .catch(err => console.error(err));
+}
+
+function showError(error) {
+    switch(error.code) {
+        case error.PERMISSION_DENIED:
+            alert("User denied the request for Geolocation.");
+            break;
+        case error.POSITION_UNAVAILABLE:
+            alert("Location information is unavailable.");
+            break;
+        case error.TIMEOUT:
+            alert("The request to get user location timed out.");
+            break;
+        default:
+            alert("An unknown error occurred.");
+            break;
+    }
+}
+
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

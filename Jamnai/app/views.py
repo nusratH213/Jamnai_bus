@@ -1,12 +1,53 @@
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from .models import Route, RouteStopage, Trip, Schedule, Card, Ticket
 from django.contrib.auth import get_user_model
+import json
+from django.views.decorators.csrf import csrf_exempt
+import math
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    # Radius of Earth in km
+    R = 6371  
+
+    # Convert degrees → radians
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+
+    # Haversine formula
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return R * c  
+
+def send_location_page(request):
+    return render(request, "app/send.html")
+
+@csrf_exempt
+def location_api(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            latitude = data.get("latitude")
+            longitude = data.get("longitude")
+            print("Location received:", latitude, longitude)  # Log in terminal
+
+            response = {
+                "received_latitude": latitude,
+                "received_longitude": longitude,
+                "message": "Location received successfully!"
+            }
+            return JsonResponse(response)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse({"error": "POST request required"}, status=405)
 
 def cap(request):
     return render(request, "app/cap.html")
+
 
 def hello_view(request):
     return render(request, "app/user_dashboard.html")
@@ -48,7 +89,6 @@ from datetime import datetime, time, timedelta
 import pytz
 
 def get_bangladesh_time():
-    """Helper function to get current time in Bangladesh timezone as naive datetime"""
     bd_timezone = pytz.timezone('Asia/Dhaka')
     utc_now = datetime.utcnow()
     utc_aware = pytz.utc.localize(utc_now)
@@ -56,7 +96,6 @@ def get_bangladesh_time():
     return bd_time.replace(tzinfo=None)  # Return naive datetime in BD time
 
 def get_bangladesh_datetime_naive():
-    """Get Bangladesh time as naive datetime (for database storage)"""
     return get_bangladesh_time()
 
 def search_routes(request):
