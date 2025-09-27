@@ -7,25 +7,20 @@ from django.contrib.auth import get_user_model
 import json
 from django.views.decorators.csrf import csrf_exempt
 import math
-
 def haversine_distance(lat1, lon1, lat2, lon2):
     # Radius of Earth in km
-    R = 6371  
-
+    R = 6371
     # Convert degrees → radians
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
-
     # Haversine formula
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     return R * c  
 
 def send_location_page(request):
     return render(request, "app/send.html")
-
 @csrf_exempt
 def location_api(request):
     if request.method == "POST":
@@ -55,7 +50,6 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-
 
 def user_login(request):
     if request.method == "POST":
@@ -116,7 +110,6 @@ def search_routes(request):
             if source in stopage_names and destination in stopage_names:
                 source_index = stopage_names.index(source)+1
                 dest_index = stopage_names.index(destination)+1
-
                 if source_index < dest_index:
                     # Valid route in correct direction
                     original_names = [rs.stopage.name for rs in route_stopages]
@@ -152,7 +145,6 @@ def search_routes(request):
                                 if stop_order <= source_index:
                                     # Initialize estimated_time
                                     estimated_time = "Unknown"
-                                    
                                     # Calculate estimated time using distance
                                     if str(last_schedule.stopage.name).lower() == str(source).lower():
                                         # Bus is at the source station
@@ -439,7 +431,7 @@ def setg_view(request):
         return JsonResponse({"error": "Road not found"}, status=404)
     except ValueError:
         return JsonResponse({"error": "Invalid value"}, status=400)
-
+    
     # Use Bangladesh timezone for consistent time recording (naive)
     current_time_bd = get_bangladesh_time()
 
@@ -449,7 +441,6 @@ def setg_view(request):
         value=value,
         time=current_time_bd
     )
-
     return JsonResponse({
         "status": "value inserted",
         "stopage": stopage.name,

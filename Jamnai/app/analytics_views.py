@@ -7,7 +7,6 @@ from app.models import Trip, Ticket, Schedule, Route, Card, ImgNow, User, Owner,
 import json
 from collections import defaultdict
 import pytz
-
 # Import enhanced analytics functions
 from app.enhanced_analytics import (
     get_hourly_analytics_with_time_tracking,
@@ -40,7 +39,6 @@ def analytics_api(request):
     start_time_str = request.GET.get('start_time', '')  # Format: HH:MM
     end_time_str = request.GET.get('end_time', '')    # Format: HH:MM
     hourly_analysis = request.GET.get('hourly_analysis', 'false').lower() == 'true'
-    
     print(f"Analytics API called with:")
     print(f"  filter_type: {filter_type}")
     print(f"  filter_value: {filter_value}")
@@ -48,7 +46,6 @@ def analytics_api(request):
     print(f"  start_time: {start_time_str}")
     print(f"  end_time: {end_time_str}")
     print(f"  hourly_analysis: {hourly_analysis}")
-    
     # Parse time intervals if provided
     start_time = None
     end_time = None
@@ -72,13 +69,10 @@ def analytics_api(request):
         start_date = end_date - timedelta(days=365)
     else:
         start_date = None
-    
-    print(f"  Date range: {start_date} to {end_date}")
+    print(f"  Date raenge: {start_date} to {end_date}")
     
     data = {}
-    
     try:
-        # Handle hourly analysis requests
         if hourly_analysis and time_period == 'today':
             print("Processing hourly analysis request...")
             if filter_type == 'total':
@@ -90,7 +84,6 @@ def analytics_api(request):
             else:
                 data = get_hourly_total_analytics(start_date, None, None)
         
-        # Handle custom date/time analysis requests
         elif request.GET.get('custom_analysis', '').lower() == 'true':
             custom_start_date = request.GET.get('start_date', '')
             custom_end_date = request.GET.get('end_date', '')
@@ -102,7 +95,6 @@ def analytics_api(request):
                 start_date = datetime.strptime(custom_start_date, '%Y-%m-%d').date()
                 end_date = datetime.strptime(custom_end_date, '%Y-%m-%d').date()
                 print(f"Processing custom analysis from {start_date} to {end_date}")
-                
                 if filter_type == 'total':
                     data = get_custom_total_analytics(start_date, end_date, None, None)
                 elif filter_type == 'route':
@@ -207,18 +199,13 @@ def get_total_analytics(start_date, end_date):
             'tickets': bus_tickets.count(),
             'revenue': bus_revenue
         })
-    
-    # Daily revenue trend (last 30 days)
     daily_revenue = []
-    # Use today's date if end_date is None (use Bangladesh time)
     reference_date = end_date if end_date else get_bangladesh_time().date()
-    
     for i in range(30):
         date = reference_date - timedelta(days=i)
         day_trips = trips.filter(date=date)
         day_tickets = tickets.filter(trip__date=date)
         day_revenue = float(day_tickets.aggregate(Sum('price'))['price__sum'] or 0)
-        
         daily_revenue.append({
             'date': date.strftime('%Y-%m-%d'),
             'day_name': date.strftime('%A'),
@@ -227,8 +214,6 @@ def get_total_analytics(start_date, end_date):
             'tickets': day_tickets.count(),
             'avg_ticket_price': float(day_tickets.aggregate(Avg('price'))['price__avg'] or 0)
         })
-    
-    # Hourly distribution based on trip start times (since tickets don't have time field)
     hourly_tickets = defaultdict(int)
     hourly_revenue = defaultdict(float)
     
@@ -246,7 +231,6 @@ def get_total_analytics(start_date, end_date):
             'revenue': hourly_revenue[hour]
         })
     
-    # Stopage congestion analysis
     stopage_congestion = get_stopage_congestion_analysis(start_date, end_date)
     
     return {
