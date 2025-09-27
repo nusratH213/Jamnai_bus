@@ -304,8 +304,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">📈 Revenue Trend</h5>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" onclick="toggleChartType('revenueTrendChart', 'line')">Line</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="toggleChartType('revenueTrendChart', 'bar')">Bar</button>
+                                <button type="button" class="btn btn-outline-primary active">Line</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -322,8 +321,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">⏰ Hourly Distribution</h5>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" onclick="toggleChartType('hourlyChart', 'bar')">Bar</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="toggleChartType('hourlyChart', 'radar')">Radar</button>
+                                <button type="button" class="btn btn-outline-primary active">Bar</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -340,8 +338,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">🚏 Route Performance</h5>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" onclick="toggleChartType('routeChart', 'doughnut')">Doughnut</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="toggleChartType('routeChart', 'polarArea')">Polar</button>
+                                <button type="button" class="btn btn-outline-primary active">Doughnut</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -358,8 +355,7 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">🚌 Bus Performance</h5>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" onclick="toggleChartType('busChart', 'bar')">Bar</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="toggleChartType('busChart', 'line')">Line</button>
+                                <button type="button" class="btn btn-outline-primary active">Bar</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -379,8 +375,7 @@
                                 <small class="text-muted">Passenger boarding and alighting at each stopage</small>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
-                                <button type="button" class="btn btn-outline-primary active" onclick="toggleChartType('stopageChart', 'bar')">Bar</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="toggleChartType('stopageChart', 'scatter')">Scatter</button>
+                                <button type="button" class="btn btn-outline-primary active">Bar</button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -392,78 +387,7 @@
                 </div>
             </div>
 
-            <!-- Detailed Tables -->
-            <div class="row">
-                <div class="col-12 mb-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <ul class="nav nav-pills card-header-pills" id="tableTabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="routes-tab" data-bs-toggle="pill" data-bs-target="#routes" type="button" role="tab">Routes</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="buses-tab" data-bs-toggle="pill" data-bs-target="#buses" type="button" role="tab">Buses</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="daily-tab" data-bs-toggle="pill" data-bs-target="#daily" type="button" role="tab">Daily Breakdown</button>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="card-body">
-                            <div class="tab-content" id="tableTabsContent">
-                                <div class="tab-pane fade show active" id="routes" role="tabpanel">
-                                    <div class="table-responsive">
-                                        <table class="table table-striped" id="routesTable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Route ID</th>
-                                                    <th>Route</th>
-                                                    <th>Trips</th>
-                                                    <th>Tickets</th>
-                                                    <th>Revenue (৳)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="tab-pane fade" id="buses" role="tabpanel">
-                                    <div class="table-responsive">
-                                        <table class="table table-striped" id="busesTable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Bus ID</th>
-                                                    <th>Trips</th>
-                                                    <th>Tickets</th>
-                                                    <th>Revenue (৳)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="tab-pane fade" id="daily" role="tabpanel">
-                                    <div class="table-responsive">
-                                        <table class="table table-striped" id="dailyTable">
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Day</th>
-                                                    <th>Trips</th>
-                                                    <th>Tickets</th>
-                                                    <th>Revenue (৳)</th>
-                                                    <th>Avg Ticket (৳)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
         </div>
     </div>
 
@@ -1072,7 +996,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             renderEnhancedStopageAnalysis(data.stopage_congestion || [], startDate, endDate);
             
             // Populate tables with custom period data
-            populateCustomTables(data);
+
         }
 
         function renderCustomSummaryCards(summary, filterType) {
@@ -1384,43 +1308,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             });
         }
 
-        function populateCustomTables(data) {
-            // Update table headers to reflect custom period
-            const dailyTableHeader = document.querySelector('#dailyTable thead tr');
-            if (dailyTableHeader) {
-                dailyTableHeader.innerHTML = `
-                    <th>Date</th>
-                    <th>Day</th>
-                    <th>Trips</th>
-                    <th>Tickets</th>
-                    <th>Revenue (৳)</th>
-                    <th>Avg Ticket (৳)</th>
-                `;
-            }
-            
-            // Populate daily table with custom period data
-            if (data.daily_trend && data.daily_trend.length > 0) {
-                populateDailyTable(data.daily_trend);
-            } else {
-                const tbody = document.querySelector('#dailyTable tbody');
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">
-                            <i class="fas fa-info-circle"></i> No daily data available for the selected custom period
-                        </td>
-                    </tr>
-                `;
-            }
-            
-            // Routes and buses tables
-            if (data.route_performance) {
-                populateRoutesTable(data.route_performance);
-            }
-            
-            if (data.bus_performance) {
-                populateBusesTable(data.bus_performance);
-            }
-        }
+
 
         // Initialize custom date inputs with today's date
         document.addEventListener('DOMContentLoaded', function() {
@@ -1480,7 +1368,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             }
             
             // Populate hourly tables
-            populateHourlyTables(data);
+
         }
 
         function renderHourlySummaryCards(summary, filterType) {
@@ -1546,8 +1434,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
                     </div>
                 </div>
             `).join('');
-        }
-
+            }
         function renderHourlyTrendChart(hourlyTrend) {
             const ctx = document.getElementById('revenueTrendChart').getContext('2d');
             destroyChart('revenueTrend');
@@ -1953,47 +1840,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             destroyChart('bus');
         }
 
-        function populateHourlyTables(data) {
-            console.log('Populating hourly tables with data:', data);
-            
-            // Populate hourly breakdown table
-            if (data.hourly_breakdown && data.hourly_breakdown.length > 0) {
-                const tbody = document.querySelector('#dailyTable tbody');
-                tbody.innerHTML = data.hourly_breakdown.map(hour => `
-                    <tr>
-                        <td><strong>${hour.hour}:00</strong></td>
-                        <td>${hour.time_period || getTimePeriodName(hour.hour)}</td>
-                        <td>${hour.trips || 0}</td>
-                        <td>${hour.tickets || 0}</td>
-                        <td>৳${(hour.revenue || 0).toLocaleString()}</td>
-                        <td>৳${(hour.avg_ticket_price || 0).toFixed(2)}</td>
-                    </tr>
-                `).join('');
-                
-                console.log('Populated hourly breakdown table with', data.hourly_breakdown.length, 'rows');
-            } else {
-                const tbody = document.querySelector('#dailyTable tbody');
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">
-                            <i class="fas fa-info-circle"></i> No hourly breakdown data available for the selected time range
-                        </td>
-                    </tr>
-                `;
-                console.log('No hourly breakdown data available');
-            }
-            
-            // Update table header for hourly data
-            const dailyTableHeader = document.querySelector('#dailyTable thead tr');
-            dailyTableHeader.innerHTML = `
-                <th>Hour</th>
-                <th>Period</th>
-                <th>Trips</th>
-                <th>Tickets</th>
-                <th>Revenue (৳)</th>
-                <th>Avg Ticket (৳)</th>
-            `;
-        }
+
 
         function getTimePeriodName(hour) {
             if (hour >= 6 && hour < 12) return 'Morning';
@@ -2387,10 +2234,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
                 });
             }
             
-            // Populate tables
-            populateRoutesTable(data.route_performance || []);
-            populateBusesTable(data.bus_performance || []);
-            populateDailyTable(data.daily_trend || []);
+
 
             // Render stopage congestion chart if available
             renderStopageChart(data.stopage_congestion || []);
@@ -2828,7 +2672,6 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             if (data.route_performance) {
                 const ctx = document.getElementById('routeChart').getContext('2d');
                 destroyChart('route');
-                
                 charts.route = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
@@ -2855,6 +2698,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
                         }
                     }
                 });
+                // Removed call to populateRoutesTable to prevent ReferenceError
             }
 
             if (data.daily_performance) {
@@ -2929,8 +2773,7 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             if (data.bus_info) {
                 const ctx = document.getElementById('hourlyChart').getContext('2d');
                 destroyChart('hourly');
-                
-                const busInfoChart = new Chart(ctx, {
+                charts.hourly = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: ['Owner', 'Total Routes', 'Total Trips', 'Total Revenue'],
@@ -2967,54 +2810,18 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
             }
 
             // Populate tables with bus-specific data
-            if (data.route_performance) {
-                populateRoutesTable(data.route_performance);
-            }
-
+            // if (data.route_performance) {
+            //     populateRoutesTable(data.route_performance);
+            // }
             // Hide unused charts
             destroyChart('bus');
         }
 
-        function populateRoutesTable(routes) {
-            const tbody = document.querySelector('#routesTable tbody');
-            tbody.innerHTML = routes.map(route => `
-                <tr>
-                    <td><span class="badge bg-primary">${route.route_id}</span></td>
-                    <td>${route.start} → ${route.end}</td>
-                    <td>${route.trips}</td>
-                    <td>${route.tickets}</td>
-                    <td>৳${route.revenue.toLocaleString()}</td>
-                </tr>
-            `).join('');
-        }
 
-        function populateBusesTable(buses) {
-            const tbody = document.querySelector('#busesTable tbody');
-            tbody.innerHTML = buses
-                .sort((a, b) => b.revenue - a.revenue)
-                .map(bus => `
-                    <tr>
-                        <td><span class="badge bg-secondary">${bus.bus_id}</span></td>
-                        <td>${bus.trips}</td>
-                        <td>${bus.tickets}</td>
-                        <td>৳${bus.revenue.toLocaleString()}</td>
-                    </tr>
-                `).join('');
-        }
 
-        function populateDailyTable(daily) {
-            const tbody = document.querySelector('#dailyTable tbody');
-            tbody.innerHTML = daily.map(day => `
-                <tr>
-                    <td>${day.date}</td>
-                    <td>${day.day_name || new Date(day.date).toLocaleDateString('en', { weekday: 'short' })}</td>
-                    <td>${day.trips || 0}</td>
-                    <td>${day.tickets || 0}</td>
-                    <td>৳${(day.revenue || 0).toLocaleString()}</td>
-                    <td>৳${(day.avg_ticket_price || 0).toFixed(2)}</td>
-                </tr>
-            `).join('');
-        }
+
+
+
 
         function populateStopageTable(stopages) {
             const tbody = document.querySelector('#stopageTable tbody');

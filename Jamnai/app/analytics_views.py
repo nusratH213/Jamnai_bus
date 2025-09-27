@@ -69,6 +69,7 @@ def analytics_api(request):
         start_date = end_date - timedelta(days=365)
     else:
         start_date = None
+        
     print(f"  Date raenge: {start_date} to {end_date}")
     
     data = {}
@@ -1213,10 +1214,74 @@ def get_custom_route_analytics(route_id, start_date, end_date, start_time=None, 
         'stopage_congestion': enhanced_stopage_congestion
     }
 
+def get_bus_stopage_analysis(bus, start_date, end_date, start_time=None, end_time=None):
+    """Get stopage analysis for a bus within optional time range"""
+    try:
+        # Base query for tickets involving this bus
+        base_tickets_query = Ticket.objects.filter(
+            trip__bus=bus.id,
+            trip__date__gte=start_date,
+            trip__date__lte=end_date
+        )
+        
+        # Add time filtering if provided
+        if start_time and end_time:
+            base_tickets_query = base_tickets_query.filter(
+                in_ticket_time__time__gte=start_time,
+                in_ticket_time__time__lte=end_time,
+                in_ticket_time__isnull=False
+            )
+        
+        # Get all stopages that have activity with this bus in this period
+        active_stopages = set()
+        active_stopages.update(base_tickets_query.values_list('start_stopage', flat=True))
+        active_stopages.update(base_tickets_query.values_list('end_stopage', flat=True))
+        active_stopages.discard(None)  # Remove None values
+        
+        stopage_analysis = []
+        
+        for stopage_id in active_stopages:
+            try:
+                stopage = Stopage.objects.get(id=stopage_id)
+                
+                # Calculate boarding (passengers getting on at this stopage)
+                boarding_count = base_tickets_query.filter(start_stopage=stopage).count()
+                
+                # Calculate alighting (passengers getting off at this stopage)
+                alighting_count = base_tickets_query.filter(end_stopage=stopage).count()
+                
+                # Calculate revenue generated from this stopage
+                stopage_revenue = float(base_tickets_query.filter(start_stopage=stopage).aggregate(Sum('price'))['price__sum'] or 0)
+                
+                # Determine position if this stopage belongs to any route
+                position = 'N/A'
+                try:
+                    route_stopage = RouteStopage.objects.filter(stopage=stopage).first()
+                    if route_stopage:
+                        position = route_stopage.order
+                except RouteStopage.DoesNotExist:
+                    pass
+                
+                stopage_analysis.append({
+                    'stopage_id': stopage.id,
+                    'stopage_name': stopage.name,
+                    'position': position,
+                    'boarding_count': boarding_count,
+                    'alighting_count': alighting_count,
+                    'total_traffic': boarding_count + alighting_count,
+                    'revenue': stopage_revenue
+                })
+            except Stopage.DoesNotExist:
+                continue
+        return stopage_analysis
+    except Exception as e:
+        print(f"Error in bus stopage analysis: {e}")
+        return []
+
+
 def get_custom_bus_analytics(bus_id, start_date, end_date, start_time=None, end_time=None):
     """Get custom date/time range analytics for a specific bus"""
     print(f"Getting custom bus analytics for bus {bus_id} from {start_date} to {end_date}")
-    
     try:
         bus = User.objects.get(id=bus_id, role='bus')
     except User.DoesNotExist:
@@ -1282,7 +1347,7 @@ def get_custom_bus_analytics(bus_id, start_date, end_date, start_time=None, end_
                 })
             except Route.DoesNotExist:
                 continue
-    
+    stopage_analysis = get_bus_stopage_analysis(bus, start_date, end_date, start_time, end_time)
     return {
         'bus_info': {
             'bus_id': bus.id,
@@ -1296,9 +1361,9 @@ def get_custom_bus_analytics(bus_id, start_date, end_date, start_time=None, end_
             'routes_served': routes_served
         },
         'daily_performance': daily_performance,
-        'route_performance': route_performance
+        'route_performance': route_performance,
+        'stopage_congestion': stopage_analysis
     }
-
 def get_custom_stopage_congestion_analysis(start_date, end_date, start_time=None, end_time=None):
     """Get enhanced stopage congestion analysis for custom date/time range"""
     print(f"Getting custom stopage congestion analysis from {start_date} to {end_date}")
