@@ -342,30 +342,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Load on page ready
     fetchCurrentStopage();
-    sendLocation()
     // Auto-refresh every 30 seconds
     setInterval(fetchCurrentStopage, 30000);
 });
-function sendLocation(position) {
-    const data = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
-    };
-
-    fetch("{% url 'location_api' %}", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": getCookie("csrftoken")
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        document.getElementById('server-response').textContent = JSON.stringify(result, null, 2);
-    })
-    .catch(err => console.error(err));
-}
 function showMessage(message, type) {
     const container = document.getElementById("message-container");
     const messageDiv = document.getElementById("message");

@@ -25,6 +25,20 @@ SECRET_KEY = "django-insecure-=i6xt1q80v#l61xq5rm1@&ck*$2rf@7=mq!+n_q_1w311t&4p!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 ALLOWED_HOSTS = ['*']
+
+# Allow CSRF from ngrok and localhost
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
+]
+
+# Disable secure SSL redirect for development with ngrok
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",

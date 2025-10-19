@@ -642,17 +642,14 @@ def getstop(request):
 from rest_framework.response import Response
 from rest_framework import status
 from app.models import Trip, Schedule, Stopage
-
 @api_view(['POST'])
+@csrf_exempt
 def updatestop(request):
     data = request.data
     bus_id = data.get('bus_id')
     stopage_id = data.get('stopage_id')
     arrive_flag = data.get('arrive')
     print(f"Received request to update stopage for bus_id: {bus_id}, stopage_id: {stopage_id}, arrive_flag: {arrive_flag}")
-
-    # Always use Bangladesh timezone
-    bd_timezone = pytz.timezone('Asia/Dhaka')
 
     # Validate input
     if not all([bus_id, stopage_id]) or arrive_flag not in [0, 1, '0', '1']:
@@ -678,7 +675,7 @@ def updatestop(request):
         trip = Trip.objects.get(bus=bus, is_ended=False)
     except Trip.DoesNotExist:
         return Response({"error": "No active trip for this bus."}, status=status.HTTP_404_NOT_FOUND)
-
+    print(f"Active trip found: {trip.trip_id}")
     # Get current time in Bangladesh timezone (naive)
     current_time_bd = get_bangladesh_time()
     now_time = current_time_bd.time()  # Extract time component
@@ -943,7 +940,7 @@ def location_api(request):
                 print(f"[DEPARTURE CHECK] Distance from last stop {last_schedule.stopage.name}: {distance_from_last:.3f} km")
                 
                 # If bus moved more than 10 meters (0.01 km) away, mark as departure
-                if distance_from_last >= 0.01:
+                if distance_from_last >= 0.05:
                     current_time_bd = get_bangladesh_time()
                     last_schedule.departure_time = current_time_bd.time()
                     last_schedule.save(update_fields=['departure_time'])
@@ -953,9 +950,9 @@ def location_api(request):
                         "departure_time": str(current_time_bd.time()),
                         "distance_moved_km": round(distance_from_last, 3)
                     }
-            
-            # If within 50 meters (0.05 km), update schedule
-            if distance_to_stop >= 0.01:
+
+            # If within 50 meters (0.01 km), update schedule
+            if distance_to_stop >= 0.05:
                 print(f"[UPDATE] Bus {bus_id} is within range of {next_stop_name}, updating schedule.")
                 current_time_bd = get_bangladesh_time()
                 
