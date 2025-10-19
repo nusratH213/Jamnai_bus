@@ -1237,7 +1237,7 @@ def get_bus_stopage_analysis(bus, start_date, end_date, start_time=None, end_tim
         active_stopages.update(base_tickets_query.values_list('start_stopage', flat=True))
         active_stopages.update(base_tickets_query.values_list('end_stopage', flat=True))
         active_stopages.discard(None)  # Remove None values
-        
+
         stopage_analysis = []
         
         for stopage_id in active_stopages:
@@ -1269,7 +1269,17 @@ def get_bus_stopage_analysis(bus, start_date, end_date, start_time=None, end_tim
                     'boarding_count': boarding_count,
                     'alighting_count': alighting_count,
                     'total_traffic': boarding_count + alighting_count,
-                    'revenue': stopage_revenue
+                    'revenue': stopage_revenue,
+                    'congestion_level': get_congestion_level(boarding_count + alighting_count),
+                    'avg_revenue_per_ticket': float(stopage_revenue / boarding_count) if boarding_count > 0 else 0,
+                    'tickets': boarding_count,
+                    'alighting_tickets': alighting_count,
+                    'total_tickets': boarding_count + alighting_count,
+                    'bus_number': str(bus.id),
+                    'date_range': f"{start_date} to {end_date}",
+                    'time_range': f"{start_time} to {end_time}" if start_time and end_time else 'N/A',
+                    'analysis_generated_at': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+
                 })
             except Stopage.DoesNotExist:
                 continue
@@ -1277,7 +1287,6 @@ def get_bus_stopage_analysis(bus, start_date, end_date, start_time=None, end_tim
     except Exception as e:
         print(f"Error in bus stopage analysis: {e}")
         return []
-
 
 def get_custom_bus_analytics(bus_id, start_date, end_date, start_time=None, end_time=None):
     """Get custom date/time range analytics for a specific bus"""

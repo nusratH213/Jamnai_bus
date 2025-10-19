@@ -108,11 +108,15 @@ def search_routes(request):
             route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
             stopage_names = [rs.stopage.name.strip().lower() for rs in route_stopages]
             if source in stopage_names and destination in stopage_names:
-                source_index = stopage_names.index(source)+1
-                dest_index = stopage_names.index(destination)+1
+                source_index = stopage_names.index(source)
+                dest_index = stopage_names.index(destination)
                 if source_index < dest_index:
                     # Valid route in correct direction
                     original_names = [rs.stopage.name for rs in route_stopages]
+                    # print(f"Route {route.route_id} matches: {original_names}")
+                    # print(source_index, dest_index)
+                    original_names = original_names[source_index:dest_index + 1]
+                    # print(original_names)
                     routes_with_path.append({
                         'route': route,
                         'stopages': original_names
@@ -150,7 +154,7 @@ def search_routes(request):
                                         # Bus is at the source station
                                         current_local_time = current_time_bd
                                         estimated_time = current_local_time.strftime("%H:%M")
-                                        print(f"Bus at source - Current Bangladesh time: {current_local_time}, formatted: {estimated_time}")
+                                        # print(f"Bus at source - Current Bangladesh time: {current_local_time}, formatted: {estimated_time}")
                                     else:
                                         try:
                                             # Get cumulative distances
@@ -160,12 +164,12 @@ def search_routes(request):
                                             # Calculate distance difference (source distance - current distance)
                                             distance_to_travel = source_stopage_route.distance_from_last_stopage - current_stopage_route.distance_from_last_stopage
                                             
-                                            print(f"Distance calculation: current={current_stopage_route.distance_from_last_stopage}, source={source_stopage_route.distance_from_last_stopage}, to_travel={distance_to_travel}")
+                                            # print(f"Distance calculation: current={current_stopage_route.distance_from_last_stopage}, source={source_stopage_route.distance_from_last_stopage}, to_travel={distance_to_travel}")
                                             
                                             if distance_to_travel <= 0:
                                                 current_local_time = current_time_bd
                                                 estimated_time = current_local_time.strftime("%H:%M")
-                                                print(f"Distance <= 0 - Current user time: {current_local_time}, formatted: {estimated_time}")
+                                                # print(f"Distance <= 0 - Current user time: {current_local_time}, formatted: {estimated_time}")
                                             else:
                                                 # Calculate time: 3 minutes per kilometer
                                                 travel_time_minutes = distance_to_travel * 3
@@ -175,13 +179,13 @@ def search_routes(request):
                                                     departure_datetime = datetime.combine(current_time_bd.date(), last_schedule.departure_time)
                                                     estimated_arrival = departure_datetime + timedelta(minutes=travel_time_minutes)
                                                     estimated_time = estimated_arrival.strftime("%H:%M")
-                                                    print(f"Departed bus - Departure: {departure_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
+                                                    # print(f"Departed bus - Departure: {departure_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
                                                 elif current_location_schedule:
                                                     # Bus is currently at station, estimate from now
                                                     current_datetime = current_time_bd
                                                     estimated_arrival = current_datetime + timedelta(minutes=travel_time_minutes)
                                                     estimated_time = estimated_arrival.strftime("%H:%M")
-                                                    print(f"At station - Current: {current_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
+                                                    # print(f"At station - Current: {current_datetime}, Estimated arrival: {estimated_arrival}, formatted: {estimated_time}")
                                                 elif not (route.start_stopage.departure_time):
                                                     estimated_time ="Not Started Yet"
                                                 else:
@@ -192,10 +196,10 @@ def search_routes(request):
                                             # Fallback if route stopage data is missing
                                             estimated_time = "Soon"
                                         except Exception as e:
-                                            print(f"Error calculating estimated time: {e}")
+                                            # print(f"Error calculating estimated time: {e}")
                                             estimated_time = "Unknown"
                                     
-                                    print(f"Final estimated_time for bus {trip.bus.id}: '{estimated_time}' (type: {type(estimated_time)})")
+                                    # print(f"Final estimated_time for bus {trip.bus.id}: '{estimated_time}' (type: {type(estimated_time)})")
                                     
                                     buses_info.append({
                                         'bus_id': trip.bus.id,
