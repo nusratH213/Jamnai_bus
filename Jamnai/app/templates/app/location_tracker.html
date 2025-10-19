@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Location Tracker</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        .status.inactive {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        .info-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+        .label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .value {
+            color: #212529;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        .btn-start {
+            background: #28a745;
+            color: white;
+        }
+        .btn-start:hover {
+            background: #218838;
+        }
+        .btn-stop {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-stop:hover {
+            background: #c82333;
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 Bus Location Tracker</h1>
+        
+        <div id="status" class="status inactive">
+            ⚫ Tracking Inactive
+        </div>
+
+        <div class="info-box">
+            <div class="info-row">
+                <span class="label">Bus ID:</span>
+                <span class="value" id="bus-id">{{ bus_id }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Next Stop:</span>
+                <span class="value" id="next-stop">{{ next_stop|default:"Loading..." }}</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Current Location:</span>
+                <span class="value" id="location">Not available</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Last Update:</span>
+                <span class="value" id="last-update">Never</span>
+            </div>
+            <div class="info-row">
+                <span class="label">Updates Sent:</span>
+                <span class="value" id="update-count">0</span>
+            </div>
+        </div>
+
+        <button id="startBtn" class="btn btn-start" onclick="startTracking()">
+            ▶️ Start Tracking (Every 30s)
+        </button>
+        <button id="stopBtn" class="btn btn-stop" onclick="stopTracking()" disabled>
+            ⏹️ Stop Tracking
+        </button>
+
+        <div class="log" id="log">
+            <div class="log-entry info">📋 Activity log will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        let trackingInterval = null;
+        let updateCount = 0;
+        const busId = "{{ bus_id }}";
+        let nextStop = "{{ next_stop|default:'' }}";
+
+        // CSRF Token Helper Function
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            log.insertBefore(entry, log.firstChild);
+            
+            // Keep only last 20 entries
+            while (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function updateStatus(active) {
+            const statusDiv = document.getElementById('status');
+            if (active) {
+                statusDiv.className = 'status active';
+                statusDiv.innerHTML = '🟢 Tracking Active';
+            } else {
+                statusDiv.className = 'status inactive';
+                statusDiv.innerHTML = '⚫ Tracking Inactive';
+            }
+        }
+
+        function fetchNextStop() {
+            fetch('/getstop/', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.next_stopage) {
+                        nextStop = data.next_stopage;
+                        document.getElementById('next-stop').textContent = nextStop;
+                        addLog(`Next stop updated: ${nextStop}`, 'info');
+                    } else if (data.message) {
+                        document.getElementById('next-stop').textContent = data.message;
+                        addLog(data.message, 'info');
+                    }
+                })
+                .catch(error => {
+                    addLog(`Error fetching next stop: ${error.message}`, 'error');
+                });
+        }
+
+        function sendLocation() {
+            if (!navigator.geolocation) {
+                addLog('Geolocation not supported by browser', 'error');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    
+                    document.getElementById('location').textContent = 
+                        `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+                    // Send to server
+                    fetch('/location/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            latitude: lat,
+                            longitude: lon,
+                            bus: busId,
+                            next_stop: nextStop
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        updateCount++;
+                        document.getElementById('update-count').textContent = updateCount;
+                        document.getElementById('last-update').textContent = 
+                            new Date().toLocaleTimeString();
+                        addLog(`✅ Location sent successfully (${lat.toFixed(4)}, ${lon.toFixed(4)})`, 'success');
+                        
+                        // Fetch next stop after successful location update
+                        fetchNextStop();
+                    })
+                    .catch(error => {
+                        addLog(`❌ Error sending location: ${error.message}`, 'error');
+                    });
+                },
+                function(error) {
+                    addLog(`❌ Location error: ${error.message}`, 'error');
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        function startTracking() {
+            if (trackingInterval) {
+                addLog('Tracking already active', 'error');
+                return;
+            }
+
+            addLog('🚀 Starting location tracking...', 'success');
+            updateStatus(true);
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+
+            // Fetch next stop immediately
+            fetchNextStop();
+            
+            // Send location immediately
+            sendLocation();
+            
+            // Then every 30 seconds
+            trackingInterval = setInterval(sendLocation, 30000);
+        }
+
+        function stopTracking() {
+            if (!trackingInterval) {
+                addLog('No tracking active', 'error');
+                return;
+            }
+
+            clearInterval(trackingInterval);
+            trackingInterval = null;
+            updateStatus(false);
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            addLog('⏹️ Tracking stopped', 'info');
+        }
+
+        // Fetch next stop on page load
+        window.addEventListener('load', function() {
+            addLog('Page loaded. Ready to track.', 'info');
+            fetchNextStop();
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            if (trackingInterval) {
+                stopTracking();
+            }
+        });
+    </script>
+</body>
+</html>

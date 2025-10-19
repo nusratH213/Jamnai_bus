@@ -396,6 +396,22 @@
     
     <!-- Custom JavaScript -->
     <script>
+        // CSRF Token Helper Function
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
         let charts = {};
         let chartTypes = {
             revenueTrend: 'line',
@@ -543,7 +559,11 @@
         async function loadFilterOptions() {
             try {
                 console.log('Loading filter options...');
-                const response = await fetch('/analytics/filters/');
+                const response = await fetch('/analytics/filters/', {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -661,7 +681,11 @@
                     hourly_analysis: 'true'
                 });
                 
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -768,7 +792,11 @@ Data Arrays Length:
                 const apiUrl = `/analytics/api/?${params}`;
                 console.log('Testing regular API:', apiUrl);
                 
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
                 const data = await response.json();
                 
                 console.log('=== REGULAR API TEST RESULT ===');
@@ -899,7 +927,11 @@ Data Arrays Length:
                     custom_analysis: 'true'
                 });
                 
-                const response = await fetch(apiUrl);
+                const response = await fetch(apiUrl, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -1874,7 +1906,11 @@ Summary Data: ${data.summary ? JSON.stringify(data.summary) : 'None'}
                     params.append('refresh', 'true');
                 }
                 
-                const response = await fetch(`/analytics/api/?${params}`);
+                const response = await fetch(`/analytics/api/?${params}`, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);

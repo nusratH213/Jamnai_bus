@@ -22,6 +22,17 @@ Bus Manager Dashboard{% endblock %}
         </div>
     </div>
 
+    <!-- Location Tracker Link -->
+    <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center;">
+        <h3 style="color: white;">📍 Real-Time Location Tracking</h3>
+        <p style="opacity: 0.9; margin: 10px 0 20px 0;">
+            Enable automatic location updates every 30 seconds
+        </p>
+        <a href="{% url 'send_location_page' %}" class="btn-success" style="display: inline-block; padding: 15px 40px; font-size: 18px; text-decoration: none; background: white; color: #667eea; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            🚀 Open Location Tracker
+        </a>
+    </div>
+
     <!-- Action Buttons -->
     <div class="card">
         <h3>⚡ Quick Actions</h3>
@@ -77,6 +88,22 @@ Bus Manager Dashboard{% endblock %}
 </div>
 
 <script>
+// CSRF Token Helper Function
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const statusDiv = document.getElementById("status");
     const actionDiv = document.getElementById("action-buttons");
@@ -95,7 +122,12 @@ document.addEventListener("DOMContentLoaded", function () {
         `;
         actionDiv.innerHTML = "";
 
-        fetch("/getstop/")
+        fetch("/getstop/", {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
                 return response.json();
@@ -271,7 +303,7 @@ document.addEventListener("DOMContentLoaded", function () {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]')?.value || "{{ csrf_token }}"
+                "X-CSRFToken": getCookie('csrftoken')
             },
             body: JSON.stringify({
                 bus_id: "{{ user.id }}", 
@@ -310,11 +342,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Load on page ready
     fetchCurrentStopage();
-    
+    sendLocation()
     // Auto-refresh every 30 seconds
     setInterval(fetchCurrentStopage, 30000);
 });
+function sendLocation(position) {
+    const data = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+    };
 
+    fetch("{% url 'location_api' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        document.getElementById('server-response').textContent = JSON.stringify(result, null, 2);
+    })
+    .catch(err => console.error(err));
+}
 function showMessage(message, type) {
     const container = document.getElementById("message-container");
     const messageDiv = document.getElementById("message");

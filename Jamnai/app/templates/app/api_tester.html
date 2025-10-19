@@ -394,6 +394,22 @@
     </div>
 
     <script>
+        // CSRF Token Helper Function
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
         class APITester {
             constructor() {
                 this.currentEndpoint = null;
@@ -772,7 +788,11 @@
                     let response;
                     if (config.method === 'GET') {
                         const params = new URLSearchParams(requestData);
-                        response = await fetch(`${config.url}?${params}`);
+                        response = await fetch(`${config.url}?${params}`, {
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
                     } else {
                         // Special handling for /fo/ endpoint - it expects JSON
                         if (config.url === '/fo/') {
@@ -780,7 +800,7 @@
                                 method: config.method,
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                                    'X-CSRFToken': getCookie('csrftoken')
                                 },
                                 body: JSON.stringify(requestData)
                             });
@@ -790,7 +810,7 @@
                                 method: config.method,
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded',
-                                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                                    'X-CSRFToken': getCookie('csrftoken')
                                 },
                                 body: new URLSearchParams(requestData)
                             });

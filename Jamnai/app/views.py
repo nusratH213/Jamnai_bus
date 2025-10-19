@@ -7,38 +7,38 @@ from django.contrib.auth import get_user_model
 import json
 from django.views.decorators.csrf import csrf_exempt
 import math
-def haversine_distance(lat1, lon1, lat2, lon2):
-    # Radius of Earth in km
-    R = 6371
-    # Convert degrees → radians
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    # Haversine formula
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c  
+# def haversine_distance(lat1, lon1, lat2, lon2):
+#     # Radius of Earth in km
+#     R = 6371
+#     # Convert degrees → radians
+#     phi1, phi2 = math.radians(lat1), math.radians(lat2)
+#     dphi = math.radians(lat2 - lat1)
+#     dlambda = math.radians(lon2 - lon1)
+#     # Haversine formula
+#     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+#     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+#     return R * c  
 
-def send_location_page(request):
-    return render(request, "app/send.html")
-@csrf_exempt
-def location_api(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            latitude = data.get("latitude")
-            longitude = data.get("longitude")
-            print("Location received:", latitude, longitude)  # Log in terminal
+# def send_location_page(request):
+#     return render(request, "app/send.html")
+# @csrf_exempt
+# def location_api(request):
+#     if request.method == "POST":
+#         try:
+#             data = json.loads(request.body)
+#             latitude = data.get("latitude")
+#             longitude = data.get("longitude")
+#             print("Location received:", latitude, longitude)  # Log in terminal
 
-            response = {
-                "received_latitude": latitude,
-                "received_longitude": longitude,
-                "message": "Location received successfully!"
-            }
-            return JsonResponse(response)
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-    return JsonResponse({"error": "POST request required"}, status=405)
+#             response = {
+#                 "received_latitude": latitude,
+#                 "received_longitude": longitude,
+#                 "message": "Location received successfully!"
+#             }
+#             return JsonResponse(response)
+#         except Exception as e:
+#             return JsonResponse({"error": str(e)}, status=400)
+#     return JsonResponse({"error": "POST request required"}, status=405)
 
 def cap(request):
     return render(request, "app/cap.html")
@@ -50,7 +50,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-
+@csrf_exempt
 def user_login(request):
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
@@ -586,6 +586,7 @@ from rest_framework import status
 from app.models import Trip, RouteStopage, Schedule
 @login_required 
 @api_view(['GET'])
+@csrf_exempt
 def getstop(request):
     bus_id=request.user.id
     print(f"Received request to get next stopage for bus_id: {bus_id}")
@@ -762,11 +763,290 @@ def ownerview(request):
         "buses": buses,
         "owner_id": owner_id
     })
+@csrf_exempt
+def haversine_distance(lat1, lon1, lat2, lon2):
+    # Radius of Earth in km
+    R = 6371
+    # Convert degrees → radians
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    # Haversine formula
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c  
+
+import requests
+@csrf_exempt
+def get_current_location():
+    return 23.798574,90.437892
+    """Get current approximate latitude and longitude using public IP."""
+    try:
+        response = requests.get("http://ip-api.com/json/", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            lat, lon = data.get("lat"), data.get("lon")
+            if lat and lon:
+                print(f"[INFO] Current location: ({lat}, {lon})")
+                return lat, lon
+        print("[WARN] Could not fetch valid location data.")
+    except Exception as e:
+        print(f"[ERROR] Failed to get current location: {e}")
+    # fallback to a default or (0.0, 0.0)
+    return 0.0, 0.0
+
+# import subprocess
+# import json
+# def get_current_location():
+#     """Get Windows system location using PowerShell (no internet API)."""
+#     try:
+#         # Run PowerShell location query
+#         result = subprocess.run(
+#             ["powershell", "-Command", "(Get-WinSystemLocation | ConvertTo-Json)"],
+#             capture_output=True, text=True, timeout=5
+#         )
+#         if result.stdout:
+#             data = json.loads(result.stdout)
+#             lat = data.get("Latitude")
+#             lon = data.get("Longitude")
+#             if lat and lon:
+#                 print(f"[INFO] Current location (Windows): ({lat}, {lon})")
+#                 return lat, lon
+#         print("[WARN] Windows location unavailable or permission denied.")
+#     except Exception as e:
+#         print(f"[ERROR] Failed to get Windows location: {e}")
+
+#     # Offline fallback (Dhaka)
+#     return 23.8103, 90.4125
+
+@csrf_exempt
+def get_stop_lat_lon(stop_id):
+    """Return stop coordinates if available, otherwise fallback to current location."""
+    try:
+        stopage = Stopage.objects.get(id=stop_id)
+        # return stopage.latitude, stopage.longitude
+        return get_current_location()
+    except Stopage.DoesNotExist:
+        print(f"[WARN] Stopage with ID {stop_id} not found → using current location.")
+        return get_current_location()
 @login_required
-def bus_dashboard(request):
+@csrf_exempt
+def send_location_page(request):
+    """Render the location tracking page for bus drivers"""
     if request.user.role != 'Bus':
         return HttpResponse("You are not authorized to view this page.", status=403)
+    
+    bus_id = request.user.id
+    
+    # Get next stop for this bus
+    try:
+        trip = Trip.objects.get(bus__id=bus_id, is_ended=False)
+        route = trip.route
+        route_stopages = list(RouteStopage.objects.filter(route=route).order_by('order'))
+        departed_stopage_ids = set(
+            Schedule.objects.filter(trip=trip).exclude(departure_time__isnull=True).values_list('stopage__id', flat=True)
+        )
+        
+        last_index = -1
+        for i, rs in enumerate(route_stopages):
+            if rs.stopage.id in departed_stopage_ids:
+                last_index = i
+        
+        next_index = last_index + 1
+        next_stop = route_stopages[next_index].stopage.name if next_index < len(route_stopages) else "Final Destination"
+    except Trip.DoesNotExist:
+        next_stop = "No active trip"
+    
+    return render(request, "app/location_tracker.html", {
+        'bus_id': bus_id,
+        'next_stop': next_stop
+    })
 
+@csrf_exempt
+def location_api(request):
+    """
+    API endpoint to receive location updates from bus
+    Automatically updates schedule when bus reaches within 50 meters of next stop
+    """
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            latitude = data.get("latitude")
+            longitude = data.get("longitude")
+            bus_id = data.get("bus")
+            next_stop_name = data.get("next_stop")
+            
+            print(f"[LOCATION] Bus {bus_id} at ({latitude}, {longitude}), heading to: {next_stop_name}")
+            
+            if not all([latitude, longitude, bus_id, next_stop_name]):
+                return JsonResponse({
+                    "error": "Missing required parameters",
+                    "required": ["latitude", "longitude", "bus", "next_stop"]
+                }, status=400)
+            
+            # Get active trip for this bus
+            try:
+                trip = Trip.objects.get(bus__id=bus_id, is_ended=False)
+            except Trip.DoesNotExist:
+                return JsonResponse({
+                    "error": "No active trip found for this bus",
+                    "bus_id": bus_id
+                }, status=404)
+            
+            # Get the next stopage
+            try:
+                next_stopage = Stopage.objects.get(name=next_stop_name)
+            except Stopage.DoesNotExist:
+                return JsonResponse({
+                    "error": f"Stopage '{next_stop_name}' not found",
+                    "message": "Location recorded but stopage not updated"
+                }, status=200)
+            
+            # Get stopage coordinates (or use fallback)
+            stopage_lat, stopage_lon = get_stop_lat_lon(next_stopage.id)
+            
+            # Calculate distance to next stop
+            distance_to_stop = haversine_distance(
+                float(latitude), float(longitude),
+                float(stopage_lat), float(stopage_lon)
+            )
+            
+            print(f"[DISTANCE] Distance to {next_stop_name}: {distance_to_stop:.2f} km")
+            
+            response = {
+                "status": "location_received",
+                "bus_id": bus_id,
+                "latitude": latitude,
+                "longitude": longitude,
+                "next_stop": next_stop_name,
+                "distance_to_stop_km": round(distance_to_stop, 3),
+                "within_range": distance_to_stop <= 0.05,  # 50 meters
+                "message": "Location received successfully"
+            }
+            
+            # Check if bus has departed from last stoppage (moved 10m away)
+            last_schedule = Schedule.objects.filter(
+                trip=trip,
+                arrival_time__isnull=False,
+                departure_time__isnull=True
+            ).order_by('-arrival_time').first()
+            
+            if last_schedule:
+                # Get coordinates of last stoppage
+                last_stop_lat, last_stop_lon = get_stop_lat_lon(last_schedule.stopage.id)
+                
+                # Calculate distance from last stoppage
+                distance_from_last = haversine_distance(
+                    float(latitude), float(longitude),
+                    float(last_stop_lat), float(last_stop_lon)
+                )
+                print(f"[DEPARTURE CHECK] Distance from last stop {last_schedule.stopage.name}: {distance_from_last:.3f} km")
+                
+                # If bus moved more than 10 meters (0.01 km) away, mark as departure
+                if distance_from_last >= 0.01:
+                    current_time_bd = get_bangladesh_time()
+                    last_schedule.departure_time = current_time_bd.time()
+                    last_schedule.save(update_fields=['departure_time'])
+                    print(f"[AUTO DEPARTURE] Bus {bus_id} departed from {last_schedule.stopage.name} at {current_time_bd.time()}")
+                    response["auto_departure"] = {
+                        "stoppage": last_schedule.stopage.name,
+                        "departure_time": str(current_time_bd.time()),
+                        "distance_moved_km": round(distance_from_last, 3)
+                    }
+            
+            # If within 50 meters (0.05 km), update schedule
+            if distance_to_stop >= 0.01:
+                print(f"[UPDATE] Bus {bus_id} is within range of {next_stop_name}, updating schedule.")
+                current_time_bd = get_bangladesh_time()
+                
+                # Check if schedule exists for this stopage
+                schedule, created = Schedule.objects.get_or_create(
+                    trip=trip,
+                    stopage=next_stopage,
+                    defaults={
+                        'arrival_time': current_time_bd.time(),
+                        'departure_time': None
+                    }
+                )
+                
+                if created:
+                    # Bus just arrived at this stop
+                    print(f"[ARRIVAL] Bus {bus_id} arrived at {next_stop_name} at {current_time_bd.time()}")
+                    response["schedule_update"] = "arrival_recorded"
+                    response["arrival_time"] = str(current_time_bd.time())
+                else:
+                    # Bus is departing from this stop
+                    if not schedule.departure_time:
+                        schedule.departure_time = current_time_bd.time()
+                        schedule.save(update_fields=['departure_time'])
+                        print(f"[DEPARTURE] Bus {bus_id} departed from {next_stop_name} at {current_time_bd.time()}")
+                        response["schedule_update"] = "departure_recorded"
+                        response["departure_time"] = str(current_time_bd.time())
+                    else:
+                        response["schedule_update"] = "already_completed"
+                
+                # Check if this is the last stop
+                route = trip.route
+                if str(next_stopage.name).lower() == str(route.end_stopage.name).lower():
+                    # Auto-complete trip at final destination
+                    trip.end_time = current_time_bd.time()
+                    trip.is_ended = True
+                    trip.save(update_fields=["end_time", "is_ended"])
+                    
+                    # Complete all incomplete tickets
+                    incomplete_tickets = Ticket.objects.filter(trip=trip, is_completed=False)
+                    completed_count = 0
+                    
+                    for ticket in incomplete_tickets:
+                        ticket.end_stopage = next_stopage
+                        ticket.out_ticket_time = current_time_bd
+                        ticket.is_completed = True
+                        
+                        # Calculate fare
+                        start_distance = RouteStopage.objects.get(
+                            route=trip.route, stopage=ticket.start_stopage
+                        ).distance_from_last_stopage
+                        
+                        end_distance = RouteStopage.objects.get(
+                            route=trip.route, stopage=next_stopage
+                        ).distance_from_last_stopage
+                        
+                        distance = abs(end_distance - start_distance)
+                        ticket.price = distance * 2.5
+                        ticket.card.taka -= ticket.price
+                        ticket.card.availability = True
+                        ticket.card.save(update_fields=['taka', 'availability'])
+                        ticket.save(update_fields=['end_stopage', 'out_ticket_time', 'is_completed', 'price'])
+                        
+                        trip.available_seats += 1
+                        completed_count += 1
+                    
+                    trip.save(update_fields=["available_seats"])
+                    response["trip_completed"] = True
+                    response["tickets_completed"] = completed_count
+                    print(f"[TRIP END] Trip {trip.trip_id} completed. {completed_count} tickets finalized.")
+            else:
+                response["schedule_update"] = "not_within_range"
+                response["message"] = f"Bus is {distance_to_stop:.2f} km away from {next_stop_name}"
+            
+            return JsonResponse(response)
+            
+        except Exception as e:
+            print(f"[ERROR] Location API error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                "error": str(e),
+                "type": type(e).__name__
+            }, status=400)
+    
+    return JsonResponse({"error": "POST request required"}, status=405)
+@login_required
+@csrf_exempt
+def bus_dashboard(request):
+    if request.user.role != 'Bus':  
+        return HttpResponse("You are not authorized to view this page.", status=403)
+    # print(get_stop_lat_lon(1))
     bus_id = request.user.id
     print(f"Rendering bus dashboard for bus_id: {bus_id}")
 

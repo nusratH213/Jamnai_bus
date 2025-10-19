@@ -38,5 +38,5 @@ urlpatterns = [
     # path("api/setbus/", setbus),   
 
     path('send-location/', views.send_location_page, name='send_location_page'),
-    path('location-api/', views.location_api, name='location_api'),
+    path('location/', views.location_api, name='location_api'),
 ]

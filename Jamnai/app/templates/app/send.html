@@ -24,7 +24,6 @@ document.getElementById('get-location-btn').addEventListener('click', function()
         alert("Geolocation is not supported by this browser.");
     }
 });
-
 function sendLocation(position) {
     const data = {
         latitude: position.coords.latitude,

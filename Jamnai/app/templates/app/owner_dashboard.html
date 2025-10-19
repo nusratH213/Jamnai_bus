@@ -113,6 +113,22 @@
 </div>
 
 <script>
+// CSRF Token Helper Function
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const ownerId = document.getElementById("owner_id").value;
     const loadingState = document.getElementById("loading-state");
@@ -122,7 +138,11 @@ document.addEventListener("DOMContentLoaded", function () {
     loadingState.style.display = "block";
 
     // Load fleet data
-    fetch(`/getbus/?owner_id=${ownerId}`)
+    fetch(`/getbus/?owner_id=${ownerId}`, {
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
             return response.json();
@@ -192,7 +212,7 @@ document.addEventListener("DOMContentLoaded", function () {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                "X-CSRFToken": getCookie('csrftoken')
             },
             body: JSON.stringify({
                 bus_id: busId,
